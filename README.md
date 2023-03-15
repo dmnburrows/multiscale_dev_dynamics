@@ -6,7 +6,7 @@
 - Using reservoir pool networks to model synaptic connections in data via FORCE learning
 - Simulate network perturbations using spiking network models 
 
-##What does this repo contain?
+## What does this repo contain?
 - Modules contain functions for multiscale dynamics analyses and modelling
 - Accompanying ipynotebooks demonstrate how to use the modules
 
