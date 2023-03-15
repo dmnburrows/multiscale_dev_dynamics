@@ -7,8 +7,8 @@
 - Simulate network perturbations using spiking network models 
 
 ##What does this repo contain?
-Modules contain functions for multiscale dynamics analyses and modelling
-Accompanying ipynotebooks demonstrate how to use the modules
+- Modules contain functions for multiscale dynamics analyses and modelling
+- Accompanying ipynotebooks demonstrate how to use the modules
 
 ## Modules
 'metastability.py' - functions for calculating the number of metastable states and state transition dynamics
