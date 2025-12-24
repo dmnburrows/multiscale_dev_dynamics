@@ -150,7 +150,7 @@ def select_region(trace, dff, bind, coord, region):
         locs = np.where(coord[:,4] != 'nan')
 
     else: 
-        locs = np.where(coord[:,4] == region)
+        locs = np.where(coord[:,3] == region)
 
     sub_coord = coord[locs][:,:3].astype(float)
     sub_trace, sub_dff, sub_bind = trace[locs], dff[locs], bind[locs]
