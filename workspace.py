@@ -14,6 +14,7 @@ import trace_analyse as tfn
 from tqdm import tqdm
 import re
 
+
 #ICG
 import numpy as np
 
@@ -541,159 +542,107 @@ start_dic = {
 
 # NEW: overwrite only p_ext, slope, e_w, i_w, theta
 start_dic.update({k: float(v) for k, v in curr.items()})
+start_dic.update({'slope': 2.35})
 start_dic
 
 
-
-
 # ============================================================
-# FULL PAIRED TEST:
-# Random neuron addition only
-# DR + response span + communicability
+# FAST COMBINATORIAL BOUNDARY SWEEP
 #
-# Design:
-#   - 20 matched baseline network instantiations
-#   - 20 random-addition values from 0.05 to 0.40
-#   - For each baseline seed:
-#       1. baseline network
-#       2. same baseline A with random neurons added at each fraction
+# Sweep:
+#   phi/slope: 1 -> 5, 5 values
+#   theta
+#   ei_ratio
+#   n_neurons
 #
-# Counts:
-#   - Baseline networks: 20
-#   - Random-addition fractions: 20
-#   - Random condition networks: 20 seeds x 20 fractions = 400
-#   - Total condition networks: 420
-#   - Stimulus values: 13
-#   - Evoked simulations: 420 x 13 x 1 = 5460
+# Fixed from start_dic:
+#   p_ext, e_w, i_w, dt, refractory_steps
 #
-# Assumes ONLY:
-#   - automata_EI_hiermod
-#   - start_dic
-#
-# Main outputs:
-#   - random_dr_trials
-#   - random_network_metrics
-#   - random_by_network
-#   - random_paired_by_network
-#   - random_summary
-#   - random_paired_summary
-#   - random_response_curves_by_network
-#   - random_response_curves
-#   - random_compact_summary
-#   - comparison
+# Saves:
+#   boundary_fast_icg_rows.csv
+#   boundary_fast_seed_exponents.csv
+#   boundary_fast_summary.csv
+#   boundary_fast_boundary_estimates.csv
+#   plots/*.png
 # ============================================================
 
 import os
 import json
-import pickle
+import itertools
+import multiprocessing as mp
 from pathlib import Path
-from datetime import datetime
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
 from tqdm.auto import tqdm
-from scipy import sparse
 
 
 # ============================================================
 # 0. Settings
 # ============================================================
 
-# One explicit baseline at 0.00.
-# Twenty random-addition values from 0.05 to 0.40.
-ADD_NEURON_FRACS_RANDOM = np.concatenate([
-    np.array([0.00]),
-    np.linspace(0.05, 0.40, 20),
-]).astype(float)
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-GROWTH_MODES_RANDOM = [
-    "baseline",
-    "random",
-]
+OUTDIR = Path("/home/dburrows/DATA/BLNDEV-WILDTYPE/boundary_fast_phi_theta_eiratio_N")
+OUTDIR.mkdir(parents=True, exist_ok=True)
 
-STIM_RATES_HZ_RANDOM = np.array([
-    0.0,
-    1e-5,
-    3e-5,
-    1e-4,
-    3e-4,
-    1e-3,
-    3e-3,
-    1e-2,
-    3e-2,
-    1e-1,
-    3e-1,
-    1.0,
-    10 ** 0.5,
-], dtype=float)
+PLOTDIR = OUTDIR / "plots"
+PLOTDIR.mkdir(parents=True, exist_ok=True)
 
-N_SEEDS_RANDOM = 20
-N_TRIALS_RANDOM = 1
+# Main requested sweep
+PHI_VALUES = np.round(np.linspace(1.0, 5.0, 5), 3)
 
-BASE_SEED_RANDOM = 91000
+THETA_VALUES = np.array([6.5, 7.5, 8.5])
+EI_RATIO_VALUES = np.array([0.10, 0.20, 0.30])
+N_NEURONS_VALUES = np.array([500, 1000, 2000])
 
-BURN_IN_RANDOM = 0.50
-RESPONSE_DURATION_RANDOM = 1.00
-STIM_DURATION_RANDOM = 0.50
+# Fast settings
+N_SEEDS_PER_COND = 2
+N_WORKERS = 20
+BASE_SEED = 77000
 
-TARGET_X_LOW = 0.10
-TARGET_X_HIGH = 0.90
+# Use shorter T for fast boundary scan.
+# Change to float(start_dic["T"]) for full-length runs.
+T_RUN = 5.0
 
-MIN_ABS_SPAN_HZ = 0.25
-MIN_FRAC_SPAN = 0.05
+MAX_ICG_LEVELS = 8
+MIN_CLUSTERS = 4
 
-COMM_USE_DEGREE_NORMALIZATION = True
-COMM_SUBTRACT_DIAGONAL = True
-COMM_K_MAX = 3
+SMOOTH_TAU = 0.20
+AC_MAX_LAG = 3.0
 
-SAVE_RANDOM = True
-OUTDIR_RANDOM = "/home/dburrows/DATA/BLNDEV-WILDTYPE/proper_dr_comm_random_only_n20_20frac_005_040"
+TARGET_MV = 1.50
+TARGET_TAU = 0.20
 
-print("FULL paired DR + response-span + communicability test: RANDOM ONLY")
-print("Fractions including baseline:", ADD_NEURON_FRACS_RANDOM)
-print("Random-addition fractions only:", ADD_NEURON_FRACS_RANDOM[ADD_NEURON_FRACS_RANDOM > 0])
-print("Number of random-addition fractions:", int(np.sum(ADD_NEURON_FRACS_RANDOM > 0)))
-print("Seeds per fraction:", N_SEEDS_RANDOM)
-print("Growth modes:", GROWTH_MODES_RANDOM)
-print("Stim rates:", STIM_RATES_HZ_RANDOM)
-print("Trials per stim:", N_TRIALS_RANDOM)
-print("Response duration:", RESPONSE_DURATION_RANDOM)
-print("Communicability k_max:", COMM_K_MAX)
-print("Output dir:", OUTDIR_RANDOM)
+EXCLUDE_FIRST_FIT_POINT = True
+EXCLUDE_LAST_FIT_POINT = False
 
-expected_baseline_networks = N_SEEDS_RANDOM
-expected_random_condition_networks = N_SEEDS_RANDOM * int(np.sum(ADD_NEURON_FRACS_RANDOM > 0))
-expected_total_condition_networks = expected_baseline_networks + expected_random_condition_networks
-expected_total_evoked = expected_total_condition_networks * len(STIM_RATES_HZ_RANDOM) * N_TRIALS_RANDOM
+print("FAST combinatorial boundary sweep")
+print("phis:", PHI_VALUES)
+print("thetas:", THETA_VALUES)
+print("ei_ratios:", EI_RATIO_VALUES)
+print("n_neurons:", N_NEURONS_VALUES)
+print("seeds per condition:", N_SEEDS_PER_COND)
+print("workers:", N_WORKERS)
+print("T_RUN:", T_RUN)
+print("OUTDIR:", OUTDIR)
 
-print("")
-print("Expected baseline networks:", expected_baseline_networks)
-print("Expected random condition networks:", expected_random_condition_networks)
-print("Expected total condition networks:", expected_total_condition_networks)
-print("Expected total evoked simulations:", expected_total_evoked)
+total_sims = (
+    len(PHI_VALUES)
+    * len(THETA_VALUES)
+    * len(EI_RATIO_VALUES)
+    * len(N_NEURONS_VALUES)
+    * N_SEEDS_PER_COND
+)
+print("Total simulations:", total_sims)
 
 
 # ============================================================
-# 1. Required object check
-# ============================================================
-
-_REQUIRED = [
-    "automata_EI_hiermod",
-    "start_dic",
-]
-
-_missing = [x for x in _REQUIRED if x not in globals()]
-if len(_missing) > 0:
-    raise NameError(
-        "Missing required existing functions/objects:\n"
-        + "\n".join([f"  - {x}" for x in _missing])
-    )
-
-
-# ============================================================
-# 2. Generic helpers
+# 1. Helpers
 # ============================================================
 
 def sem(x):
@@ -703,1258 +652,658 @@ def sem(x):
     return float(x.std(ddof=1) / np.sqrt(len(x)))
 
 
-def remove_self_edges_local(A):
-    A = np.asarray(A, dtype=bool).copy()
-    np.fill_diagonal(A, False)
-    return A
+def fit_powerlaw_one_seed(
+    g,
+    y_col,
+    x_col="mean_cluster_size",
+    exclude_first=True,
+    exclude_last=False,
+    min_points=3,
+):
+    d = g[[x_col, y_col]].copy()
+    d = d.replace([np.inf, -np.inf], np.nan).dropna()
+    d = d[(d[x_col] > 0) & (d[y_col] > 0)]
+    d = d.sort_values(x_col)
+
+    if exclude_first and len(d) > 0:
+        d = d.iloc[1:]
+
+    if exclude_last and len(d) > 0:
+        d = d.iloc[:-1]
+
+    if len(d) < min_points:
+        return {"alpha": np.nan, "r2": np.nan, "n_points": int(len(d))}
+
+    logx = np.log10(d[x_col].to_numpy(float))
+    logy = np.log10(d[y_col].to_numpy(float))
+
+    alpha, intercept = np.polyfit(logx, logy, 1)
+    pred = intercept + alpha * logx
+
+    ss_res = np.sum((logy - pred) ** 2)
+    ss_tot = np.sum((logy - np.mean(logy)) ** 2)
+    r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else np.nan
+
+    return {
+        "alpha": float(alpha),
+        "r2": float(r2),
+        "n_points": int(len(d)),
+    }
 
 
-def make_start_model_local(seed, p_ext=None):
+def estimate_saturation_phi(x, y, frac=0.10):
     """
-    Build exact canonical automata_EI_hiermod baseline.
-    Used only to generate baseline hierarchical A.
+    First phi where y is within frac of final plateau.
+    Plateau = mean of final 2 phi points.
     """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    ok = np.isfinite(x) & np.isfinite(y)
+    x, y = x[ok], y[ok]
+
+    if len(x) < 4:
+        return np.nan
+
+    order = np.argsort(x)
+    x, y = x[order], y[order]
+
+    plateau = np.nanmean(y[-2:])
+    start = y[0]
+    span = abs(plateau - start)
+
+    if span <= 1e-12:
+        return float(x[0])
+
+    dist = np.abs(y - plateau)
+    idx = np.where(dist <= frac * span)[0]
+
+    if len(idx) == 0:
+        return np.nan
+
+    return float(x[idx[0]])
+
+
+def add_normed_seed_metrics(df, group_col="sim_id"):
+    d = df.copy()
+    d = d.sort_values([group_col, "mean_cluster_size"])
+
+    d["scaled_variance_norm"] = (
+        d["scaled_variance"]
+        / d.groupby(group_col)["scaled_variance"].transform("first")
+    )
+
+    d["timescale_norm"] = (
+        d["timescale"]
+        / d.groupby(group_col)["timescale"].transform("first")
+    )
+
+    return d
+
+
+# ============================================================
+# 2. Worker
+# ============================================================
+
+def run_one_boundary_job(job):
+    """
+    One job = one phi × theta × ei_ratio × n_neurons × seed.
+    """
+    phi, theta, ei_ratio, n_neurons, seed = job
+
     pars = dict(start_dic)
     pars.pop("T", None)
 
-    if p_ext is not None:
-        pars["p_ext"] = float(p_ext)
-
+    pars["slope"] = float(phi)
+    pars["theta"] = float(theta)
+    pars["ei_ratio"] = float(ei_ratio)
+    pars["n_neurons"] = int(n_neurons)
     pars["seed"] = int(seed)
 
-    return automata_EI_hiermod(**pars)
-
-
-def make_model_from_A_fast(A_fixed, e_fixed, seed, p_ext=None):
-    """
-    Fast model construction without rebuilding hierarchical A.
-
-    New and old neurons use same global scalar weights:
-        E rows -> e_w
-        I rows -> i_w
-    """
-    if p_ext is None:
-        p_ext = float(start_dic["p_ext"])
-
-    A_fixed = remove_self_edges_local(A_fixed).astype(np.uint8)
-
-    model = automata_EI_hiermod.__new__(automata_EI_hiermod)
-
-    model.rng = np.random.default_rng(int(seed))
-
-    model.n = int(A_fixed.shape[0])
-    model.e = int(e_fixed)
-    model.i = int(model.n - model.e)
-
-    model.e_w = float(start_dic["e_w"])
-    model.i_w = float(start_dic["i_w"])
-    model.theta = float(start_dic["theta"])
-    model.slope = float(start_dic["slope"])
-    model.p_ext = float(p_ext)
-
-    model.refractory_steps = int(start_dic["refractory_steps"])
-    model.dt = float(start_dic["dt"])
-
-    model.A = A_fixed
-    model.A_e = A_fixed[:model.e, :]
-    model.A_i = A_fixed[model.e:, :]
-
-    model.state = np.zeros(model.n, dtype=np.int16)
-
-    return model
-
-
-# ============================================================
-# 3. Communicability proxy
-# ============================================================
-
-def compute_communicability_metrics(A, k_max=COMM_K_MAX):
-    """
-    Fast truncated communicability proxy.
-
-    Approximates:
-        exp(B) @ 1
-
-    using:
-        1 + B1 + B^2 1 / 2! + ... + B^k 1 / k!
-
-    where:
-        B = A / mean_out_degree
-    """
-    A = remove_self_edges_local(A).astype(np.float32)
-    N = int(A.shape[0])
-
-    edge_count = int(A.sum())
-    mean_out_degree = float(A.sum(axis=1).mean())
-    density = float(edge_count / max(N * (N - 1), 1))
-
-    if N <= 1 or edge_count == 0 or mean_out_degree <= 0:
-        return {
-            "comm_N": N,
-            "comm_edge_count": edge_count,
-            "comm_density": density,
-            "comm_mean_out_degree": mean_out_degree,
-            "communicability_total": np.nan,
-            "communicability_mean_all": np.nan,
-            "communicability_mean_offdiag": np.nan,
-            "communicability_input_scale": np.nan,
-            "communicability_k_max": int(k_max),
-        }
-
-    scale = mean_out_degree if COMM_USE_DEGREE_NORMALIZATION else 1.0
-    scale = float(max(scale, 1e-12))
-
-    B = sparse.csr_matrix(A / scale)
-    ones = np.ones(N, dtype=np.float64)
-
-    v_total = ones.copy()
-    v_power = ones.copy()
-    factorial = 1.0
-
-    for k in range(1, int(k_max) + 1):
-        v_power = B @ v_power
-        factorial *= k
-        v_total += v_power / factorial
-
-    total = float(np.sum(v_total))
-    mean_all = float(total / (N * N))
-
-    if COMM_SUBTRACT_DIAGONAL:
-        mean_offdiag = float((total - N) / max(N * (N - 1), 1))
-    else:
-        mean_offdiag = float(total / max(N * (N - 1), 1))
-
-    return {
-        "comm_N": N,
-        "comm_edge_count": edge_count,
-        "comm_density": density,
-        "comm_mean_out_degree": mean_out_degree,
-        "communicability_total": total,
-        "communicability_mean_all": mean_all,
-        "communicability_mean_offdiag": mean_offdiag,
-        "communicability_input_scale": scale,
-        "communicability_k_max": int(k_max),
-    }
-
-
-# ============================================================
-# 4. Random neuron addition from fixed baseline A
-# ============================================================
-
-def add_random_neurons_same_density_from_A(
-    A_old,
-    e0,
-    add_neuron_frac,
-    seed,
-):
-    """
-    Random addition from fixed baseline A.
-
-    New ordering:
-        old E
-        new E
-        old I
-        new I
-
-    Dynamics/weights:
-        all E rows use global e_w
-        all I rows use global i_w
-    """
-    rng = np.random.default_rng(int(seed))
-
-    A_old = np.asarray(A_old, dtype=bool)
-
-    N0 = int(A_old.shape[0])
-    e0 = int(e0)
-    i0 = N0 - e0
-
-    n_add = int(round(float(add_neuron_frac) * N0))
-    n_add = max(n_add, 0)
-
-    baseline_edge_density = float(A_old.sum() / max(N0 * (N0 - 1), 1))
-
-    if n_add == 0:
-        info = {
-            "growth_mode": "baseline",
-            "N0": N0,
-            "N1": N0,
-            "n_add": 0,
-            "add_neuron_frac": 0.0,
-            "e0": e0,
-            "i0": i0,
-            "e1": e0,
-            "i1": i0,
-            "n_add_e": 0,
-            "n_add_i": 0,
-            "baseline_edge_density": baseline_edge_density,
-            "n_edges_old": int(A_old.sum()),
-            "n_edges_new_total": int(A_old.sum()),
-            "n_edges_added": 0,
-            "mean_out_degree_old": float(A_old.sum(axis=1).mean()),
-            "mean_out_degree_new": float(A_old.sum(axis=1).mean()),
-            "mean_in_degree_new": float(A_old.sum(axis=0).mean()),
-            "mean_added_out_degree": np.nan,
-            "mean_added_in_degree": np.nan,
-        }
-
-        return A_old.copy(), e0, info
-
-    N1 = N0 + n_add
-
-    # In your class, ei_ratio is inhibitory fraction.
-    e1 = int(N1 - (N1 * float(start_dic["ei_ratio"])))
-    i1 = N1 - e1
-
-    n_add_e = e1 - e0
-    n_add_i = i1 - i0
-
-    if n_add_e < 0 or n_add_i < 0:
-        raise ValueError(
-            f"E/I split went negative: n_add_e={n_add_e}, n_add_i={n_add_i}"
-        )
-
-    old_to_new = np.empty(N0, dtype=int)
-
-    old_E_old = np.arange(0, e0)
-    old_I_old = np.arange(e0, N0)
-
-    old_E_new = np.arange(0, e0)
-    old_I_new = np.arange(e1, e1 + i0)
-
-    old_to_new[old_E_old] = old_E_new
-    old_to_new[old_I_old] = old_I_new
-
-    A_new = np.zeros((N1, N1), dtype=bool)
-
-    # Preserve old-old edges exactly under new ordering.
-    ii, jj = np.where(A_old)
-    A_new[old_to_new[ii], old_to_new[jj]] = True
-
-    # New neuron indices.
-    new_E_idx = np.arange(e0, e1)
-    new_I_idx = np.arange(e1 + i0, N1)
-    added_idx = np.concatenate([new_E_idx, new_I_idx]).astype(int)
-
-    # Candidate directed edges where at least one endpoint is new.
-    candidate = np.zeros((N1, N1), dtype=bool)
-    candidate[added_idx, :] = True
-    candidate[:, added_idx] = True
-    np.fill_diagonal(candidate, False)
-    candidate[A_new] = False
-
-    random_edges = candidate & (rng.random((N1, N1)) < baseline_edge_density)
-
-    A_new |= random_edges
-    A_new = remove_self_edges_local(A_new)
-
-    info = {
-        "growth_mode": "random",
-        "N0": N0,
-        "N1": N1,
-        "n_add": int(n_add),
-        "add_neuron_frac": float(add_neuron_frac),
-        "e0": e0,
-        "i0": i0,
-        "e1": int(e1),
-        "i1": int(i1),
-        "n_add_e": int(n_add_e),
-        "n_add_i": int(n_add_i),
-        "baseline_edge_density": baseline_edge_density,
-        "n_edges_old": int(A_old.sum()),
-        "n_edges_new_total": int(A_new.sum()),
-        "n_edges_added": int(A_new.sum() - A_old.sum()),
-        "mean_out_degree_old": float(A_old.sum(axis=1).mean()),
-        "mean_out_degree_new": float(A_new.sum(axis=1).mean()),
-        "mean_in_degree_new": float(A_new.sum(axis=0).mean()),
-        "mean_added_out_degree": float(A_new[added_idx, :].sum(axis=1).mean()),
-        "mean_added_in_degree": float(A_new[:, added_idx].sum(axis=0).mean()),
-    }
-
-    return A_new, e1, info
-
-
-def build_A_for_condition_from_baseline(
-    A_base,
-    e_base,
-    add_neuron_frac,
-    growth_mode,
-    perturb_seed,
-):
-    growth_mode = str(growth_mode)
-    add_neuron_frac = float(add_neuron_frac)
-
-    if growth_mode == "baseline":
-        A_new, e_new, info = add_random_neurons_same_density_from_A(
-            A_old=A_base,
-            e0=e_base,
-            add_neuron_frac=0.0,
-            seed=int(perturb_seed),
-        )
-        info["growth_mode"] = "baseline"
-
-    elif growth_mode == "random":
-        A_new, e_new, info = add_random_neurons_same_density_from_A(
-            A_old=A_base,
-            e0=e_base,
-            add_neuron_frac=add_neuron_frac,
-            seed=int(perturb_seed),
-        )
-        info["growth_mode"] = "random"
-
-    else:
-        raise ValueError(f"Unknown growth_mode: {growth_mode}")
-
-    return A_new, e_new, info
-
-
-# ============================================================
-# 5. Evoked simulation
-# ============================================================
-
-def run_evoked_response_from_A(
-    A_fixed,
-    e_fixed,
-    stim_rate_hz,
-    seed,
-    p_ext=None,
-):
-    if p_ext is None:
-        p_ext = float(start_dic["p_ext"])
-
-    model = make_model_from_A_fast(
-        A_fixed=A_fixed,
-        e_fixed=e_fixed,
-        seed=int(seed),
-        p_ext=float(p_ext),
+    model = automata_EI_hiermod(**pars)
+    spikes, pop_rate = run_model(model, T=float(T_RUN))
+
+    X = exp_smooth_spikes(
+        spikes,
+        dt=float(pars["dt"]),
+        tau=SMOOTH_TAU,
     )
 
-    dt = float(model.dt)
+    gen_l, label_l, icgtr_l, size_l = icg_greedy_fast(
+        X,
+        n_gen=MAX_ICG_LEVELS,
+        eps=1e-6,
+        keep_singletons=True,
+        return_gen0=True,
+        verbose=False,
+    )
 
-    n_burn = int(round(float(BURN_IN_RANDOM) / dt))
-    for _ in range(n_burn):
-        model.step()
+    rows = []
 
-    p_ext_base = float(model.p_ext)
-    p_stim_per_step = float(1.0 - np.exp(-float(stim_rate_hz) * dt))
+    sim_id = (
+        f"phi{phi:.3f}_theta{theta:.3f}_eir{ei_ratio:.3f}_"
+        f"N{int(n_neurons)}_seed{int(seed)}"
+    )
 
-    n_resp = int(round(float(RESPONSE_DURATION_RANDOM) / dt))
-    n_stim = int(round(float(STIM_DURATION_RANDOM) / dt))
+    for gen, Xg, sg in zip(gen_l, icgtr_l, size_l):
+        if Xg.shape[0] < MIN_CLUSTERS:
+            break
 
-    active_count = 0
-    pop_rates = np.zeros(n_resp, dtype=float)
+        rows.append({
+            "phi": float(phi),
+            "slope": float(phi),
+            "theta": float(theta),
+            "ei_ratio": float(ei_ratio),
+            "n_neurons": int(n_neurons),
+            "seed": int(seed),
+            "sim_id": sim_id,
 
-    for t in range(n_resp):
-        if t < n_stim:
-            model.p_ext = float(np.clip(p_ext_base + p_stim_per_step, 0.0, 1.0))
-        else:
-            model.p_ext = p_ext_base
+            "icg_level": int(gen),
+            "mean_cluster_size": float(np.mean(sg)),
+            "n_clusters": int(Xg.shape[0]),
 
-        active = model.step()
-        active_count += int(active.sum())
-        pop_rates[t] = active.mean() / dt
+            "scaled_variance": float(mean_variance_sum(Xg)),
+            "timescale": float(timescale(
+                Xg,
+                max_lag=AC_MAX_LAG,
+                dt=float(pars["dt"]),
+            )),
+            "kurtosis_corr": float(kurtosis_corr(Xg)),
 
-    response_hz = active_count / float(model.n * n_resp * dt)
+            "mean_rate_hz": float(spikes.mean() / float(pars["dt"])),
+            "pop_rate_mean_hz": float(np.mean(pop_rate)),
+            "pop_rate_std_hz": float(np.std(pop_rate)),
 
-    return {
-        "response_hz": float(response_hz),
-        "response_pop_rate_mean_hz": float(pop_rates.mean()),
-        "response_pop_rate_std_hz": float(pop_rates.std()),
-        "p_stim_per_step": float(p_stim_per_step),
-        "p_ext_used": float(p_ext_base),
-        "p_ext_plus_stim": float(np.clip(p_ext_base + p_stim_per_step, 0.0, 1.0)),
-    }
+            "n_edges": int(model.A.sum()),
+            "density": float(model.A.mean()),
+            "mean_out_degree": float(model.A.sum(axis=1).mean()),
+            "mean_in_degree": float(model.A.sum(axis=0).mean()),
+
+            "p_ext": float(pars["p_ext"]),
+            "e_w": float(pars["e_w"]),
+            "i_w": float(pars["i_w"]),
+            "dt": float(pars["dt"]),
+            "T": float(T_RUN),
+            "refractory_steps": int(pars["refractory_steps"]),
+        })
+
+    return pd.DataFrame(rows)
 
 
 # ============================================================
-# 6. DR / response-curve metrics
+# 3. Build jobs
 # ============================================================
 
-def compute_dr_metrics_from_curve(curve_df):
-    """
-    Quick DR estimate.
+jobs = []
 
-    Uses:
-        F0 from stim_rate_hz == 0
-        Fmax from positive stimuli
-        S10/S90 interpolated in log10 stimulus space
-    """
-    d = curve_df.copy()
-    d = d.replace([np.inf, -np.inf], np.nan)
-    d = d.dropna(subset=["stim_rate_hz", "response_hz_mean"])
-    d = d.sort_values("stim_rate_hz")
+cond_i = 0
 
-    zero = d[np.isclose(d["stim_rate_hz"], 0.0)]
-    pos = d[d["stim_rate_hz"] > 0].copy()
+for phi, theta, ei_ratio, n_neurons in itertools.product(
+    PHI_VALUES,
+    THETA_VALUES,
+    EI_RATIO_VALUES,
+    N_NEURONS_VALUES,
+):
+    cond_i += 1
+    seeds = BASE_SEED + cond_i * 1000 + np.arange(N_SEEDS_PER_COND)
 
-    if len(zero) > 0:
-        F0 = float(zero["response_hz_mean"].mean())
-    else:
-        F0 = float(d["response_hz_mean"].min()) if len(d) else np.nan
+    for seed in seeds:
+        jobs.append((
+            float(phi),
+            float(theta),
+            float(ei_ratio),
+            int(n_neurons),
+            int(seed),
+        ))
 
-    if len(pos) < 3:
-        return {
-            "F0": F0,
-            "Fmax": np.nan,
-            "response_span": np.nan,
-            "frac_response_span": np.nan,
-            "S_10": np.nan,
-            "S_90": np.nan,
-            "dynamic_range_db_raw": np.nan,
-            "dynamic_range_db": np.nan,
-            "reliable_dr": False,
-            "auc_logstim": np.nan,
-            "gain_low_high": np.nan,
-        }
+print("Total jobs:", len(jobs))
 
-    stim = pos["stim_rate_hz"].to_numpy(float)
-    resp = pos["response_hz_mean"].to_numpy(float)
 
-    Fmax = float(np.nanmax(resp))
-    response_span = float(Fmax - F0)
-    frac_response_span = float(response_span / F0) if F0 > 0 else np.nan
+# ============================================================
+# 4. Run multiprocessing
+# ============================================================
 
-    auc_logstim = float(np.trapz(resp, np.log10(stim)))
-    gain_low_high = float(resp[-1] - resp[0])
+all_rows = []
 
-    if (not np.isfinite(response_span)) or response_span <= 0:
-        return {
-            "F0": F0,
-            "Fmax": Fmax,
-            "response_span": response_span,
-            "frac_response_span": frac_response_span,
-            "S_10": np.nan,
-            "S_90": np.nan,
-            "dynamic_range_db_raw": np.nan,
-            "dynamic_range_db": np.nan,
-            "reliable_dr": False,
-            "auc_logstim": auc_logstim,
-            "gain_low_high": gain_low_high,
-        }
+ctx = mp.get_context("fork")
 
-    F10 = F0 + TARGET_X_LOW * response_span
-    F90 = F0 + TARGET_X_HIGH * response_span
-
-    resp_mono = np.maximum.accumulate(resp)
-
-    def interp_stim_at_response(target):
-        if target < resp_mono.min() or target > resp_mono.max():
-            return np.nan
-
-        idx = np.where(resp_mono >= target)[0]
-        if len(idx) == 0:
-            return np.nan
-
-        hi = int(idx[0])
-
-        if hi == 0:
-            return float(stim[0])
-
-        lo = hi - 1
-
-        r0 = resp_mono[lo]
-        r1 = resp_mono[hi]
-        s0 = stim[lo]
-        s1 = stim[hi]
-
-        if r1 == r0:
-            return float(s1)
-
-        x0 = np.log10(s0)
-        x1 = np.log10(s1)
-
-        frac = (target - r0) / (r1 - r0)
-        xs = x0 + frac * (x1 - x0)
-
-        return float(10 ** xs)
-
-    S_10 = interp_stim_at_response(F10)
-    S_90 = interp_stim_at_response(F90)
-
-    if (
-        np.isfinite(S_10)
-        and np.isfinite(S_90)
-        and S_10 > 0
-        and S_90 > 0
-        and S_90 > S_10
+with ctx.Pool(processes=N_WORKERS) as pool:
+    for out_df in tqdm(
+        pool.imap_unordered(run_one_boundary_job, jobs),
+        total=len(jobs),
+        desc="Running boundary jobs",
     ):
-        dynamic_range_db_raw = float(10.0 * np.log10(S_90 / S_10))
-    else:
-        dynamic_range_db_raw = np.nan
+        all_rows.append(out_df)
 
-    reliable_dr = bool(
-        np.isfinite(dynamic_range_db_raw)
-        and response_span >= MIN_ABS_SPAN_HZ
-        and np.isfinite(frac_response_span)
-        and frac_response_span >= MIN_FRAC_SPAN
-    )
+df = pd.concat(all_rows, ignore_index=True)
 
-    dynamic_range_db = dynamic_range_db_raw if reliable_dr else np.nan
-
-    return {
-        "F0": F0,
-        "Fmax": Fmax,
-        "response_span": response_span,
-        "frac_response_span": frac_response_span,
-        "S_10": S_10,
-        "S_90": S_90,
-        "dynamic_range_db_raw": dynamic_range_db_raw,
-        "dynamic_range_db": dynamic_range_db,
-        "reliable_dr": reliable_dr,
-        "auc_logstim": auc_logstim,
-        "gain_low_high": gain_low_high,
-    }
-
-
-# ============================================================
-# 7. Build condition tasks
-# ============================================================
-
-condition_tasks = []
-
-for seed_i in range(N_SEEDS_RANDOM):
-    for growth_mode in GROWTH_MODES_RANDOM:
-        for frac_i, add_frac in enumerate(ADD_NEURON_FRACS_RANDOM):
-
-            # Only one baseline condition.
-            if growth_mode == "baseline" and not np.isclose(add_frac, 0.0):
-                continue
-
-            # Avoid duplicate zero-fraction random rows.
-            if growth_mode != "baseline" and np.isclose(add_frac, 0.0):
-                continue
-
-            condition_tasks.append({
-                "seed_i": int(seed_i),
-                "frac_i": int(frac_i),
-                "growth_mode": str(growth_mode),
-                "add_neuron_frac": float(add_frac),
-            })
-
-total_evoked = len(condition_tasks) * len(STIM_RATES_HZ_RANDOM) * N_TRIALS_RANDOM
-
-print("")
-print("Condition tasks:", len(condition_tasks))
-print("Total evoked runs:", total_evoked)
-
-
-# ============================================================
-# 8. Run serial with visible progress
-# ============================================================
-
-network_rows = []
-trial_rows = []
-curve_rows = []
-by_network_rows = []
-
-pbar = tqdm(
-    total=len(condition_tasks) + total_evoked,
-    desc="Random-only networks + evoked runs",
-)
-
-for seed_i in range(N_SEEDS_RANDOM):
-
-    # Build one matched baseline network for this seed.
-    base_seed = int(BASE_SEED_RANDOM + seed_i * 100_000)
-
-    base_model = make_start_model_local(
-        seed=base_seed,
-        p_ext=float(start_dic["p_ext"]),
-    )
-
-    A_base = remove_self_edges_local(base_model.A)
-    e_base = int(base_model.e)
-
-    seed_tasks = [t for t in condition_tasks if int(t["seed_i"]) == seed_i]
-
-    for task in seed_tasks:
-
-        growth_mode = str(task["growth_mode"])
-        add_frac = float(task["add_neuron_frac"])
-        frac_i = int(task["frac_i"])
-
-        # Same baseline seed.
-        # Perturb seed only controls random added-neuron edges.
-        perturb_seed = int(
-            base_seed
-            + frac_i * 10_000
-            + {"baseline": 0, "random": 1_000_000}[growth_mode]
-            + 999
-        )
-
-        A_fixed, e_fixed, info = build_A_for_condition_from_baseline(
-            A_base=A_base,
-            e_base=e_base,
-            add_neuron_frac=add_frac,
-            growth_mode=growth_mode,
-            perturb_seed=perturb_seed,
-        )
-
-        comm = compute_communicability_metrics(A_fixed)
-
-        network_row = {
-            "seed_i": seed_i,
-            "base_seed": base_seed,
-            "perturb_seed": perturb_seed,
-            "growth_mode": growth_mode,
-            "add_neuron_frac": add_frac,
-            "frac_i": frac_i,
-            "e_fixed": int(e_fixed),
-            "e_w_used": float(start_dic["e_w"]),
-            "i_w_used": float(start_dic["i_w"]),
-            "theta_used": float(start_dic["theta"]),
-            "p_ext_used_for_evoked": float(start_dic["p_ext"]),
-            **info,
-            **comm,
-        }
-
-        network_rows.append(network_row)
-        pbar.update(1)
-
-        trial_rows_this = []
-
-        for stim_i, stim_rate_hz in enumerate(STIM_RATES_HZ_RANDOM):
-            for trial in range(N_TRIALS_RANDOM):
-
-                # Same evoked seed across baseline/random/fractions for matched noise.
-                trial_seed = int(
-                    base_seed
-                    + stim_i * 1_000
-                    + trial * 10
-                    + 12345
-                )
-
-                out = run_evoked_response_from_A(
-                    A_fixed=A_fixed,
-                    e_fixed=e_fixed,
-                    stim_rate_hz=float(stim_rate_hz),
-                    seed=trial_seed,
-                    p_ext=float(start_dic["p_ext"]),
-                )
-
-                row = {
-                    "seed_i": seed_i,
-                    "base_seed": base_seed,
-                    "perturb_seed": perturb_seed,
-                    "trial_seed": trial_seed,
-                    "growth_mode": growth_mode,
-                    "add_neuron_frac": add_frac,
-                    "frac_i": frac_i,
-                    "stim_i": int(stim_i),
-                    "stim_rate_hz": float(stim_rate_hz),
-                    "trial": int(trial),
-                    "e_w_used": float(start_dic["e_w"]),
-                    "i_w_used": float(start_dic["i_w"]),
-                    "theta_used": float(start_dic["theta"]),
-                    **out,
-                    **info,
-                    **comm,
-                }
-
-                trial_rows.append(row)
-                trial_rows_this.append(row)
-
-                pbar.update(1)
-
-        trials_this = pd.DataFrame(trial_rows_this)
-
-        curve_this = (
-            trials_this
-            .groupby(
-                [
-                    "seed_i",
-                    "growth_mode",
-                    "add_neuron_frac",
-                    "stim_rate_hz",
-                    "p_stim_per_step",
-                ],
-                as_index=False,
-            )
-            .agg(
-                response_hz_mean=("response_hz", "mean"),
-                response_hz_sem=("response_hz", sem),
-                response_hz_std=("response_hz", "std"),
-                response_pop_rate_mean_hz=("response_pop_rate_mean_hz", "mean"),
-                response_pop_rate_std_hz=("response_pop_rate_std_hz", "mean"),
-                n_trials=("response_hz", "count"),
-
-                base_seed=("base_seed", "first"),
-                perturb_seed=("perturb_seed", "first"),
-                p_ext_used=("p_ext_used", "first"),
-                e_w_used=("e_w_used", "first"),
-                i_w_used=("i_w_used", "first"),
-                theta_used=("theta_used", "first"),
-
-                N0=("N0", "first"),
-                N1=("N1", "first"),
-                n_add=("n_add", "first"),
-                n_edges_added=("n_edges_added", "first"),
-                mean_out_degree_new=("mean_out_degree_new", "first"),
-                mean_in_degree_new=("mean_in_degree_new", "first"),
-                mean_added_out_degree=("mean_added_out_degree", "first"),
-                mean_added_in_degree=("mean_added_in_degree", "first"),
-                baseline_edge_density=("baseline_edge_density", "first"),
-
-                communicability_total=("communicability_total", "first"),
-                communicability_mean_all=("communicability_mean_all", "first"),
-                communicability_mean_offdiag=("communicability_mean_offdiag", "first"),
-                comm_density=("comm_density", "first"),
-                comm_mean_out_degree=("comm_mean_out_degree", "first"),
-            )
-        )
-
-        curve_rows.append(curve_this)
-
-        dr = compute_dr_metrics_from_curve(curve_this)
-
-        by_network_row = {
-            "seed_i": seed_i,
-            "base_seed": base_seed,
-            "perturb_seed": perturb_seed,
-            "growth_mode": growth_mode,
-            "add_neuron_frac": add_frac,
-            "frac_i": frac_i,
-            "e_w_used": float(start_dic["e_w"]),
-            "i_w_used": float(start_dic["i_w"]),
-            "theta_used": float(start_dic["theta"]),
-            "p_ext_used_for_evoked": float(start_dic["p_ext"]),
-            **dr,
-            **info,
-            **comm,
-        }
-
-        by_network_rows.append(by_network_row)
-
-pbar.close()
-
-
-# ============================================================
-# 9. Collect outputs
-# ============================================================
-
-random_dr_trials = (
-    pd.DataFrame(trial_rows)
-    .sort_values(["seed_i", "growth_mode", "add_neuron_frac", "stim_rate_hz", "trial"])
+df = (
+    df
+    .sort_values(["n_neurons", "theta", "ei_ratio", "phi", "seed", "icg_level"])
     .reset_index(drop=True)
 )
 
-random_network_metrics = (
-    pd.DataFrame(network_rows)
-    .sort_values(["seed_i", "growth_mode", "add_neuron_frac"])
+df = add_normed_seed_metrics(df, group_col="sim_id")
+
+df.to_csv(OUTDIR / "boundary_fast_icg_rows.csv", index=False)
+
+print("Saved:", OUTDIR / "boundary_fast_icg_rows.csv")
+print("ICG rows:", len(df))
+print("Unique sims:", df["sim_id"].nunique())
+
+
+# ============================================================
+# 5. Fit seed-level exponents
+# ============================================================
+
+exp_rows = []
+
+for sim_id, g in df.groupby("sim_id"):
+    mv_fit = fit_powerlaw_one_seed(
+        g,
+        y_col="scaled_variance_norm",
+        exclude_first=EXCLUDE_FIRST_FIT_POINT,
+        exclude_last=EXCLUDE_LAST_FIT_POINT,
+    )
+
+    tau_fit = fit_powerlaw_one_seed(
+        g,
+        y_col="timescale_norm",
+        exclude_first=EXCLUDE_FIRST_FIT_POINT,
+        exclude_last=EXCLUDE_LAST_FIT_POINT,
+    )
+
+    kurt_fit = fit_powerlaw_one_seed(
+        g,
+        y_col="kurtosis_corr",
+        exclude_first=EXCLUDE_FIRST_FIT_POINT,
+        exclude_last=EXCLUDE_LAST_FIT_POINT,
+    )
+
+    first = g.iloc[0]
+
+    exp_rows.append({
+        "sim_id": sim_id,
+        "phi": float(first["phi"]),
+        "theta": float(first["theta"]),
+        "ei_ratio": float(first["ei_ratio"]),
+        "n_neurons": int(first["n_neurons"]),
+        "seed": int(first["seed"]),
+
+        "MV_alpha": mv_fit["alpha"],
+        "MV_r2": mv_fit["r2"],
+        "MV_n_points": mv_fit["n_points"],
+
+        "TAU_beta": tau_fit["alpha"],
+        "TAU_r2": tau_fit["r2"],
+        "TAU_n_points": tau_fit["n_points"],
+
+        "KURT_gamma": kurt_fit["alpha"],
+        "KURT_r2": kurt_fit["r2"],
+        "KURT_n_points": kurt_fit["n_points"],
+
+        "score": (
+            abs(mv_fit["alpha"] - TARGET_MV)
+            + 2.0 * abs(tau_fit["alpha"] - TARGET_TAU)
+        ),
+
+        "mean_rate_hz": float(first["mean_rate_hz"]),
+        "pop_rate_mean_hz": float(first["pop_rate_mean_hz"]),
+        "pop_rate_std_hz": float(first["pop_rate_std_hz"]),
+
+        "n_edges": int(first["n_edges"]),
+        "density": float(first["density"]),
+        "mean_out_degree": float(first["mean_out_degree"]),
+
+        "p_ext": float(first["p_ext"]),
+        "e_w": float(first["e_w"]),
+        "i_w": float(first["i_w"]),
+        "dt": float(first["dt"]),
+        "T": float(first["T"]),
+        "refractory_steps": int(first["refractory_steps"]),
+    })
+
+exp_df = pd.DataFrame(exp_rows)
+
+exp_df.to_csv(OUTDIR / "boundary_fast_seed_exponents.csv", index=False)
+
+print("Saved:", OUTDIR / "boundary_fast_seed_exponents.csv")
+
+
+# ============================================================
+# 6. Summary by condition
+# ============================================================
+
+summary = (
+    exp_df
+    .groupby(["n_neurons", "theta", "ei_ratio", "phi"], as_index=False)
+    .agg(
+        MV_alpha_mean=("MV_alpha", "mean"),
+        MV_alpha_sem=("MV_alpha", sem),
+        MV_r2_mean=("MV_r2", "mean"),
+
+        TAU_beta_mean=("TAU_beta", "mean"),
+        TAU_beta_sem=("TAU_beta", sem),
+        TAU_r2_mean=("TAU_r2", "mean"),
+
+        KURT_gamma_mean=("KURT_gamma", "mean"),
+        KURT_gamma_sem=("KURT_gamma", sem),
+        KURT_r2_mean=("KURT_r2", "mean"),
+
+        score_mean=("score", "mean"),
+        score_sem=("score", sem),
+
+        mean_rate_hz=("mean_rate_hz", "mean"),
+        pop_rate_mean_hz=("pop_rate_mean_hz", "mean"),
+        pop_rate_std_hz=("pop_rate_std_hz", "mean"),
+
+        n_edges=("n_edges", "mean"),
+        density=("density", "mean"),
+        mean_out_degree=("mean_out_degree", "mean"),
+
+        n=("seed", "count"),
+    )
+    .sort_values(["n_neurons", "theta", "ei_ratio", "phi"])
     .reset_index(drop=True)
 )
 
-random_by_network = (
-    pd.DataFrame(by_network_rows)
-    .sort_values(["seed_i", "growth_mode", "add_neuron_frac"])
-    .reset_index(drop=True)
+summary.to_csv(OUTDIR / "boundary_fast_summary.csv", index=False)
+
+print("Saved:", OUTDIR / "boundary_fast_summary.csv")
+
+print("\nTop conditions by score:")
+print(
+    summary
+    .sort_values("score_mean")
+    .head(25)
+    .round(4)
+    .to_string(index=False)
 )
 
-random_response_curves_by_network = (
-    pd.concat(curve_rows, ignore_index=True)
-    .sort_values(["seed_i", "growth_mode", "add_neuron_frac", "stim_rate_hz"])
-    .reset_index(drop=True)
-)
 
-print("")
-print("Output shapes:")
-print("random_dr_trials:", random_dr_trials.shape)
-print("random_network_metrics:", random_network_metrics.shape)
-print("random_by_network:", random_by_network.shape)
-print("random_response_curves_by_network:", random_response_curves_by_network.shape)
+# ============================================================
+# 7. Estimate saturation/boundary phi
+# ============================================================
 
-display(random_dr_trials.head())
-display(random_network_metrics.head())
-display(random_by_network.head())
-display(random_response_curves_by_network.head())
+boundary_rows = []
+
+for keys, g in summary.groupby(["n_neurons", "theta", "ei_ratio"]):
+    n_neurons, theta, ei_ratio = keys
+    g = g.sort_values("phi")
+
+    boundary_rows.append({
+        "n_neurons": int(n_neurons),
+        "theta": float(theta),
+        "ei_ratio": float(ei_ratio),
+
+        "phi_sat_edges": estimate_saturation_phi(g["phi"], g["mean_out_degree"]),
+        "phi_sat_rate": estimate_saturation_phi(g["phi"], g["mean_rate_hz"]),
+        "phi_sat_MV": estimate_saturation_phi(g["phi"], g["MV_alpha_mean"]),
+        "phi_sat_TAU": estimate_saturation_phi(g["phi"], g["TAU_beta_mean"]),
+        "phi_sat_score": estimate_saturation_phi(g["phi"], g["score_mean"]),
+
+        "final_mean_degree": float(np.nanmean(g["mean_out_degree"].tail(2))),
+        "final_rate": float(np.nanmean(g["mean_rate_hz"].tail(2))),
+        "final_MV_alpha": float(np.nanmean(g["MV_alpha_mean"].tail(2))),
+        "final_TAU_beta": float(np.nanmean(g["TAU_beta_mean"].tail(2))),
+        "final_score": float(np.nanmean(g["score_mean"].tail(2))),
+    })
+
+boundary_df = pd.DataFrame(boundary_rows)
+
+boundary_df.to_csv(OUTDIR / "boundary_fast_boundary_estimates.csv", index=False)
+
+print("\nBoundary estimates:")
+print(boundary_df.round(4).to_string(index=False))
+
+print("Saved:", OUTDIR / "boundary_fast_boundary_estimates.csv")
 
 
 # ============================================================
-# 10. Paired baseline deltas and ratios
+# 8. Save run config
 # ============================================================
 
-baseline_metrics = (
-    random_by_network
-    .loc[random_by_network["growth_mode"] == "baseline"]
-    .set_index("seed_i")
-)
+run_config = {
+    "mode": "fast_combinatorial_boundary_sweep",
+    "PHI_VALUES": [float(x) for x in PHI_VALUES],
+    "THETA_VALUES": [float(x) for x in THETA_VALUES],
+    "EI_RATIO_VALUES": [float(x) for x in EI_RATIO_VALUES],
+    "N_NEURONS_VALUES": [int(x) for x in N_NEURONS_VALUES],
+    "N_SEEDS_PER_COND": int(N_SEEDS_PER_COND),
+    "N_WORKERS": int(N_WORKERS),
+    "BASE_SEED": int(BASE_SEED),
+    "T_RUN": float(T_RUN),
+    "MAX_ICG_LEVELS": int(MAX_ICG_LEVELS),
+    "MIN_CLUSTERS": int(MIN_CLUSTERS),
+    "SMOOTH_TAU": float(SMOOTH_TAU),
+    "AC_MAX_LAG": float(AC_MAX_LAG),
+    "TARGET_MV": float(TARGET_MV),
+    "TARGET_TAU": float(TARGET_TAU),
+    "OUTDIR": str(OUTDIR),
+    "start_dic": {
+        k: float(v) if isinstance(v, (int, float, np.integer, np.floating)) else v
+        for k, v in start_dic.items()
+    },
+}
 
-paired_metric_cols = [
-    "dynamic_range_db_raw",
-    "dynamic_range_db",
-    "response_span",
-    "frac_response_span",
-    "F0",
-    "Fmax",
-    "S_10",
-    "S_90",
-    "auc_logstim",
-    "gain_low_high",
-    "communicability_mean_offdiag",
-    "communicability_mean_all",
-    "communicability_total",
-    "comm_density",
-    "comm_mean_out_degree",
-    "mean_out_degree_new",
-    "mean_in_degree_new",
-]
+with open(OUTDIR / "run_config.json", "w") as f:
+    json.dump(run_config, f, indent=2)
 
-random_paired_by_network = random_by_network.copy()
-
-for col in paired_metric_cols:
-    if col not in random_paired_by_network.columns:
-        continue
-
-    base_map = baseline_metrics[col].to_dict()
-
-    random_paired_by_network[f"{col}_baseline"] = (
-        random_paired_by_network["seed_i"].map(base_map)
-    )
-
-    random_paired_by_network[f"{col}_delta"] = (
-        random_paired_by_network[col]
-        - random_paired_by_network[f"{col}_baseline"]
-    )
-
-    random_paired_by_network[f"{col}_ratio"] = (
-        random_paired_by_network[col]
-        / random_paired_by_network[f"{col}_baseline"].replace(0, np.nan)
-    )
+print("Saved:", OUTDIR / "run_config.json")
 
 
 # ============================================================
-# 11. Summary across seeds
+# 9. Plotting
 # ============================================================
 
-summary_metric_cols = [
-    "dynamic_range_db_raw",
-    "dynamic_range_db",
-    "response_span",
-    "frac_response_span",
-    "F0",
-    "Fmax",
-    "S_10",
-    "S_90",
-    "auc_logstim",
-    "gain_low_high",
-    "communicability_mean_offdiag",
-    "communicability_mean_all",
-    "communicability_total",
-    "comm_density",
-    "comm_mean_out_degree",
-    "mean_out_degree_new",
-    "mean_in_degree_new",
-]
-
-agg = {}
-
-for col in summary_metric_cols:
-    if col not in random_paired_by_network.columns:
-        continue
-
-    agg[col] = (col, "mean")
-    agg[f"{col}_sem"] = (col, sem)
-    agg[f"{col}_std"] = (col, "std")
-
-    if f"{col}_delta" in random_paired_by_network.columns:
-        agg[f"{col}_delta"] = (f"{col}_delta", "mean")
-        agg[f"{col}_delta_sem"] = (f"{col}_delta", sem)
-        agg[f"{col}_delta_std"] = (f"{col}_delta", "std")
-
-    if f"{col}_ratio" in random_paired_by_network.columns:
-        agg[f"{col}_ratio"] = (f"{col}_ratio", "mean")
-        agg[f"{col}_ratio_sem"] = (f"{col}_ratio", sem)
-        agg[f"{col}_ratio_std"] = (f"{col}_ratio", "std")
-
-agg.update({
-    "N0": ("N0", "mean"),
-    "N1": ("N1", "mean"),
-    "n_add": ("n_add", "mean"),
-    "n_edges_added": ("n_edges_added", "mean"),
-    "mean_added_out_degree": ("mean_added_out_degree", "mean"),
-    "mean_added_in_degree": ("mean_added_in_degree", "mean"),
-    "baseline_edge_density": ("baseline_edge_density", "mean"),
-    "reliable_fraction": ("reliable_dr", "mean"),
-    "n_seeds": ("seed_i", "nunique"),
+plt.rcParams.update({
+    "font.size": 11,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "figure.dpi": 120,
 })
 
-random_summary = (
-    random_paired_by_network
-    .groupby(["growth_mode", "add_neuron_frac"], as_index=False)
-    .agg(**agg)
-    .sort_values(["growth_mode", "add_neuron_frac"])
-    .reset_index(drop=True)
-)
 
-random_paired_summary = random_summary.copy()
-
-random_summary["usable_dynamic_range_db"] = (
-    random_summary["dynamic_range_db_raw"]
-    * random_summary["frac_response_span"]
-    .replace([np.inf, -np.inf], np.nan)
-    .clip(lower=0, upper=1)
-)
-
-display(random_summary)
+def savefig(fig, name):
+    path = PLOTDIR / name
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    print("Saved:", path)
 
 
-# ============================================================
-# 12. Average response curves
-# ============================================================
+# ------------------------------------------------------------
+# 9.1 Curves: one figure per N and theta, lines are ei_ratio
+# ------------------------------------------------------------
 
-random_response_curves = (
-    random_response_curves_by_network
-    .groupby(["growth_mode", "add_neuron_frac", "stim_rate_hz", "p_stim_per_step"], as_index=False)
-    .agg(
-        response_hz_mean=("response_hz_mean", "mean"),
-        response_hz_sem=("response_hz_mean", sem),
-        response_hz_std_across_seeds=("response_hz_mean", "std"),
-        n_seeds=("seed_i", "nunique"),
-        N1=("N1", "mean"),
-        n_add=("n_add", "mean"),
-        communicability_mean_offdiag=("communicability_mean_offdiag", "mean"),
-    )
-    .sort_values(["growth_mode", "add_neuron_frac", "stim_rate_hz"])
-    .reset_index(drop=True)
-)
-
-display(random_response_curves.head())
-
-
-# ============================================================
-# 13. Compact comparison table
-# ============================================================
-
-compact_cols = [
-    "growth_mode",
-    "add_neuron_frac",
-    "n_seeds",
-    "n_add",
-    "N1",
-    "n_edges_added",
-    "mean_out_degree_new",
-    "mean_added_out_degree",
-    "mean_added_in_degree",
-
-    "dynamic_range_db_raw",
-    "dynamic_range_db_raw_sem",
-    "dynamic_range_db_raw_std",
-    "dynamic_range_db_raw_delta",
-    "dynamic_range_db_raw_delta_sem",
-    "dynamic_range_db_raw_delta_std",
-    "dynamic_range_db_raw_ratio",
-    "dynamic_range_db_raw_ratio_sem",
-
-    "response_span",
-    "response_span_sem",
-    "response_span_std",
-    "response_span_delta",
-    "response_span_delta_sem",
-    "response_span_delta_std",
-    "response_span_ratio",
-    "response_span_ratio_sem",
-
-    "F0_ratio",
-    "F0_ratio_sem",
-    "Fmax_ratio",
-    "Fmax_ratio_sem",
-    "auc_logstim_ratio",
-    "auc_logstim_ratio_sem",
-    "gain_low_high_ratio",
-    "gain_low_high_ratio_sem",
-
-    "communicability_mean_offdiag",
-    "communicability_mean_offdiag_sem",
-    "communicability_mean_offdiag_std",
-    "communicability_mean_offdiag_delta",
-    "communicability_mean_offdiag_delta_sem",
-    "communicability_mean_offdiag_ratio",
-    "communicability_mean_offdiag_ratio_sem",
-
-    "reliable_fraction",
+metrics = [
+    ("mean_out_degree", None, "Mean out-degree", None),
+    ("mean_rate_hz", None, "Mean firing rate [Hz/neuron]", None),
+    ("MV_alpha_mean", "MV_alpha_sem", "MV exponent α", TARGET_MV),
+    ("TAU_beta_mean", "TAU_beta_sem", "Timescale exponent β", TARGET_TAU),
+    ("KURT_gamma_mean", "KURT_gamma_sem", "Kurtosis slope γ", None),
+    ("score_mean", "score_sem", "Target score", None),
 ]
 
-compact_cols = [c for c in compact_cols if c in random_summary.columns]
+for n_neurons in sorted(summary["n_neurons"].unique()):
+    for theta in sorted(summary["theta"].unique()):
 
-random_compact_summary = random_summary[compact_cols].copy()
+        d = summary[
+            (summary["n_neurons"] == n_neurons)
+            & (summary["theta"] == theta)
+        ].copy()
 
-print("")
-print("Compact paired table:")
-display(random_compact_summary)
+        fig, axes = plt.subplots(2, 3, figsize=(16, 8.5), constrained_layout=True)
+
+        for ax, (metric, sem_col, ylabel, target) in zip(axes.ravel(), metrics):
+            for ei_ratio, g in d.groupby("ei_ratio"):
+                g = g.sort_values("phi")
+
+                yerr = None
+                if sem_col is not None and sem_col in g.columns:
+                    yerr = g[sem_col]
+
+                ax.errorbar(
+                    g["phi"],
+                    g[metric],
+                    yerr=yerr,
+                    marker="o",
+                    linewidth=2,
+                    capsize=3,
+                    label=f"EI ratio={ei_ratio:g}",
+                )
+
+            if target is not None:
+                ax.axhline(target, linestyle="--", color="black", linewidth=1.2)
+
+            ax.set_xlabel("Φ / slope")
+            ax.set_ylabel(ylabel)
+            ax.set_title(ylabel)
+            ax.grid(alpha=0.25)
+
+        axes[0, 0].legend(frameon=False, fontsize=8)
+        fig.suptitle(f"N={n_neurons}, theta={theta:g}", fontsize=14)
+
+        savefig(fig, f"curves_N{n_neurons}_theta{theta:g}.png")
+        plt.show()
 
 
-# ============================================================
-# 14. Diagnostic plots
-# ============================================================
+# ------------------------------------------------------------
+# 9.2 Boundary scatter summaries
+# ------------------------------------------------------------
 
-plot_summary = random_summary.copy()
-plot_summary = plot_summary[plot_summary["growth_mode"] == "random"].copy()
+for metric in ["phi_sat_edges", "phi_sat_rate", "phi_sat_MV", "phi_sat_TAU", "phi_sat_score"]:
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), constrained_layout=True)
 
-diagnostic_specs = [
-    ("dynamic_range_db_raw_delta", "dynamic_range_db_raw_delta_sem", "Δ raw DR, dB", 0.0),
-    ("dynamic_range_db_raw_ratio", "dynamic_range_db_raw_ratio_sem", "Raw DR / baseline", 1.0),
-    ("response_span_delta", "response_span_delta_sem", "Δ response span, Hz", 0.0),
-    ("response_span_ratio", "response_span_ratio_sem", "Response span / baseline", 1.0),
-    ("F0_ratio", "F0_ratio_sem", "F0 / baseline", 1.0),
-    ("Fmax_ratio", "Fmax_ratio_sem", "Fmax / baseline", 1.0),
-    ("auc_logstim_ratio", "auc_logstim_ratio_sem", "AUC / baseline", 1.0),
-    ("gain_low_high_ratio", "gain_low_high_ratio_sem", "High-low gain / baseline", 1.0),
-    ("communicability_mean_offdiag_ratio", "communicability_mean_offdiag_ratio_sem", "Communicability / baseline", 1.0),
-    ("communicability_mean_offdiag_delta", "communicability_mean_offdiag_delta_sem", "Δ communicability", 0.0),
-]
-
-for y_col, sem_col, ylabel, ref in diagnostic_specs:
-    if y_col not in plot_summary.columns:
-        continue
-
-    fig, ax = plt.subplots(figsize=(7.5, 5.0))
-
-    g = plot_summary.sort_values("add_neuron_frac")
-    yerr = g[sem_col] if sem_col in g.columns else None
-
-    ax.errorbar(
-        g["add_neuron_frac"],
-        g[y_col],
-        yerr=yerr,
-        marker="o",
-        linewidth=2.5,
-        capsize=3,
-        label="random",
+    sc = axes[0].scatter(
+        boundary_df["n_neurons"],
+        boundary_df[metric],
+        c=boundary_df["theta"],
+        s=120,
     )
+    axes[0].set_xlabel("n_neurons")
+    axes[0].set_ylabel(metric)
+    axes[0].set_title(f"{metric} vs N")
+    plt.colorbar(sc, ax=axes[0], label="theta")
 
-    ax.axhline(ref, color="black", linestyle="--", linewidth=1.5)
-    ax.set_xlabel("Added neurons / original total neurons")
-    ax.set_ylabel(ylabel)
-    ax.set_title(ylabel)
-    ax.grid(alpha=0.25)
-    ax.legend(frameon=False)
+    sc = axes[1].scatter(
+        boundary_df["theta"],
+        boundary_df[metric],
+        c=boundary_df["ei_ratio"],
+        s=120,
+    )
+    axes[1].set_xlabel("theta")
+    axes[1].set_ylabel(metric)
+    axes[1].set_title(f"{metric} vs theta")
+    plt.colorbar(sc, ax=axes[1], label="ei_ratio")
 
-    plt.tight_layout()
+    sc = axes[2].scatter(
+        boundary_df["ei_ratio"],
+        boundary_df[metric],
+        c=boundary_df["n_neurons"],
+        s=120,
+    )
+    axes[2].set_xlabel("ei_ratio")
+    axes[2].set_ylabel(metric)
+    axes[2].set_title(f"{metric} vs EI ratio")
+    plt.colorbar(sc, ax=axes[2], label="N")
+
+    for ax in axes:
+        ax.grid(alpha=0.25)
+
+    savefig(fig, f"boundary_scatter_{metric}.png")
     plt.show()
 
 
-# ============================================================
-# 15. Response curves
-# ============================================================
+# ------------------------------------------------------------
+# 9.3 Heatmaps per theta/ei_ratio: phi × N
+# ------------------------------------------------------------
 
-for mode in ["baseline", "random"]:
-    curve_df = random_response_curves[random_response_curves["growth_mode"] == mode].copy()
+def plot_heatmap_phi_N(df, metric, theta, ei_ratio):
+    d = df[
+        (df["theta"] == theta)
+        & (df["ei_ratio"] == ei_ratio)
+    ].copy()
 
-    if len(curve_df) == 0:
-        continue
+    if len(d) == 0:
+        return
 
-    fig, ax = plt.subplots(figsize=(8, 5.5))
+    mat = (
+        d.pivot(index="n_neurons", columns="phi", values=metric)
+        .sort_index()
+        .sort_index(axis=1)
+    )
 
-    fracs = np.sort(curve_df["add_neuron_frac"].unique())
+    vals = mat.to_numpy(float)
 
-    cmap = plt.get_cmap("viridis")
-    norm = plt.Normalize(vmin=float(fracs.min()), vmax=float(fracs.max()))
+    fig, ax = plt.subplots(figsize=(7.5, 4.8))
 
-    for add_frac, g in curve_df.groupby("add_neuron_frac"):
-        g = g.sort_values("stim_rate_hz")
-        plot_g = g[g["stim_rate_hz"] > 0].copy()
+    im = ax.imshow(
+        vals,
+        origin="lower",
+        aspect="auto",
+    )
 
-        if len(plot_g) == 0:
-            continue
+    ax.set_xticks(np.arange(mat.shape[1]))
+    ax.set_xticklabels([f"{x:g}" for x in mat.columns])
 
-        if mode == "baseline" or np.isclose(add_frac, 0):
-            color = "black"
-            linewidth = 3.0
-            label = "baseline"
-            zorder = 10
-        else:
-            color = cmap(norm(add_frac))
-            linewidth = 2.0
-            label = f"{add_frac:g}"
-            zorder = 3
+    ax.set_yticks(np.arange(mat.shape[0]))
+    ax.set_yticklabels([str(int(y)) for y in mat.index])
 
-        ax.plot(
-            plot_g["stim_rate_hz"],
-            plot_g["response_hz_mean"],
-            marker="o",
-            linewidth=linewidth,
-            color=color,
-            label=label,
-            zorder=zorder,
-        )
+    ax.set_xlabel("Φ / slope")
+    ax.set_ylabel("n_neurons")
+    ax.set_title(f"{metric} | theta={theta:g}, ei_ratio={ei_ratio:g}")
 
-        if plot_g["response_hz_sem"].notna().any():
-            ax.fill_between(
-                plot_g["stim_rate_hz"],
-                plot_g["response_hz_mean"] - plot_g["response_hz_sem"],
-                plot_g["response_hz_mean"] + plot_g["response_hz_sem"],
-                color=color,
-                alpha=0.12,
-                linewidth=0,
-                zorder=zorder - 1,
-            )
+    for yi in range(mat.shape[0]):
+        for xi in range(mat.shape[1]):
+            val = mat.iloc[yi, xi]
+            if np.isfinite(val):
+                ax.text(
+                    xi,
+                    yi,
+                    f"{val:.2f}",
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                )
 
-    ax.set_xscale("log")
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label(metric)
 
-    vals = curve_df["response_hz_mean"].replace([np.inf, -np.inf], np.nan).dropna()
-    if len(vals) > 0 and np.all(vals > 0):
-        ax.set_yscale("log")
-
-    ax.set_xlabel("Stimulus rate, Hz")
-    ax.set_ylabel("Response rate, Hz")
-    ax.set_title(f"Stimulus-response curves: {mode}")
-    ax.grid(alpha=0.25)
-
-    if mode != "baseline":
-        smap = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        smap.set_array([])
-        cbar = plt.colorbar(smap, ax=ax)
-        cbar.set_label("Added neurons / original total neurons")
-
-    ax.legend(frameon=False, fontsize=8, ncol=2)
-
-    plt.tight_layout()
+    savefig(fig, f"heatmap_{metric}_theta{theta:g}_eir{ei_ratio:g}.png")
     plt.show()
 
 
-# ============================================================
-# 16. Quick interpretation helper
-# ============================================================
+for theta in sorted(summary["theta"].unique()):
+    for ei_ratio in sorted(summary["ei_ratio"].unique()):
+        for metric in ["MV_alpha_mean", "TAU_beta_mean", "score_mean", "mean_rate_hz", "mean_out_degree"]:
+            plot_heatmap_phi_N(summary, metric, theta, ei_ratio)
 
-comparison_cols = [
-    "add_neuron_frac",
-    "n_seeds",
-    "dynamic_range_db_raw_delta",
-    "dynamic_range_db_raw_delta_sem",
-    "dynamic_range_db_raw_ratio",
-    "response_span_delta",
-    "response_span_delta_sem",
-    "response_span_ratio",
-    "communicability_mean_offdiag_delta",
-    "communicability_mean_offdiag_delta_sem",
-    "communicability_mean_offdiag_ratio",
+
+# ------------------------------------------------------------
+# 9.4 Best conditions
+# ------------------------------------------------------------
+
+best = summary.sort_values("score_mean").head(50)
+
+best_cols = [
+    "phi",
+    "theta",
+    "ei_ratio",
+    "n_neurons",
+    "MV_alpha_mean",
+    "TAU_beta_mean",
+    "KURT_gamma_mean",
+    "score_mean",
+    "mean_rate_hz",
+    "pop_rate_std_hz",
+    "mean_out_degree",
+    "n",
 ]
 
-comparison_cols = [c for c in comparison_cols if c in random_summary.columns]
+print("\nTop 50 conditions:")
+print(best[best_cols].round(4).to_string(index=False))
 
-comparison = (
-    random_summary
-    .loc[random_summary["growth_mode"] == "random"]
-    .sort_values("add_neuron_frac")
-    [comparison_cols]
-)
+best.to_csv(PLOTDIR / "top_50_conditions.csv", index=False)
 
-print("")
-print("Random addition paired summary:")
-display(comparison)
-
-
-# ============================================================
-# 17. Save outputs
-# ============================================================
-
-if SAVE_RANDOM:
-    OUTDIR_RANDOM = Path(OUTDIR_RANDOM)
-    OUTDIR_RANDOM.mkdir(parents=True, exist_ok=True)
-
-    outputs_to_save = {
-        "random_dr_trials": random_dr_trials,
-        "random_network_metrics": random_network_metrics,
-        "random_by_network": random_by_network,
-        "random_paired_by_network": random_paired_by_network,
-        "random_summary": random_summary,
-        "random_paired_summary": random_paired_summary,
-        "random_response_curves_by_network": random_response_curves_by_network,
-        "random_response_curves": random_response_curves,
-        "random_compact_summary": random_compact_summary,
-        "comparison": comparison,
-    }
-
-    for name, df in outputs_to_save.items():
-        csv_path = OUTDIR_RANDOM / f"{name}.csv"
-        pkl_path = OUTDIR_RANDOM / f"{name}.pkl"
-
-        df.to_csv(csv_path, index=False)
-        df.to_pickle(pkl_path)
-
-        print(f"Saved {name}:")
-        print(f"  CSV: {csv_path}")
-        print(f"  PKL: {pkl_path}")
-
-    all_outputs_path = OUTDIR_RANDOM / "all_random_outputs.pkl"
-
-    with open(all_outputs_path, "wb") as f:
-        pickle.dump(outputs_to_save, f)
-
-    print("")
-    print(f"Saved combined output pickle: {all_outputs_path}")
-
-    metadata = {
-        "saved_at": datetime.now().isoformat(),
-        "outdir": str(OUTDIR_RANDOM),
-
-        "ADD_NEURON_FRACS_RANDOM": ADD_NEURON_FRACS_RANDOM.tolist(),
-        "random_addition_values_only": ADD_NEURON_FRACS_RANDOM[ADD_NEURON_FRACS_RANDOM > 0].tolist(),
-        "n_random_addition_values": int(np.sum(ADD_NEURON_FRACS_RANDOM > 0)),
-
-        "GROWTH_MODES_RANDOM": list(GROWTH_MODES_RANDOM),
-        "STIM_RATES_HZ_RANDOM": STIM_RATES_HZ_RANDOM.tolist(),
-
-        "N_SEEDS_RANDOM": int(N_SEEDS_RANDOM),
-        "N_TRIALS_RANDOM": int(N_TRIALS_RANDOM),
-        "BASE_SEED_RANDOM": int(BASE_SEED_RANDOM),
-
-        "BURN_IN_RANDOM": float(BURN_IN_RANDOM),
-        "RESPONSE_DURATION_RANDOM": float(RESPONSE_DURATION_RANDOM),
-        "STIM_DURATION_RANDOM": float(STIM_DURATION_RANDOM),
-
-        "TARGET_X_LOW": float(TARGET_X_LOW),
-        "TARGET_X_HIGH": float(TARGET_X_HIGH),
-        "MIN_ABS_SPAN_HZ": float(MIN_ABS_SPAN_HZ),
-        "MIN_FRAC_SPAN": float(MIN_FRAC_SPAN),
-
-        "COMM_USE_DEGREE_NORMALIZATION": bool(COMM_USE_DEGREE_NORMALIZATION),
-        "COMM_SUBTRACT_DIAGONAL": bool(COMM_SUBTRACT_DIAGONAL),
-        "COMM_K_MAX": int(COMM_K_MAX),
-
-        "n_condition_tasks": int(len(condition_tasks)),
-        "n_evoked_runs": int(total_evoked),
-
-        "expected_baseline_networks": int(expected_baseline_networks),
-        "expected_random_condition_networks": int(expected_random_condition_networks),
-        "expected_total_condition_networks": int(expected_total_condition_networks),
-        "expected_total_evoked_simulations": int(expected_total_evoked),
-
-        "actual_random_dr_trials_rows": int(random_dr_trials.shape[0]),
-        "actual_network_metric_rows": int(random_network_metrics.shape[0]),
-        "actual_by_network_rows": int(random_by_network.shape[0]),
-
-        "start_dic": {
-            str(k): (
-                float(v)
-                if isinstance(v, (int, float, np.integer, np.floating))
-                else str(v)
-            )
-            for k, v in start_dic.items()
-        },
-
-        "output_shapes": {
-            name: {
-                "rows": int(df.shape[0]),
-                "cols": int(df.shape[1]),
-            }
-            for name, df in outputs_to_save.items()
-        },
-    }
-
-    metadata_path = OUTDIR_RANDOM / "run_metadata.json"
-
-    with open(metadata_path, "w") as f:
-        json.dump(metadata, f, indent=2)
-
-    print(f"Saved metadata: {metadata_path}")
-
-    reload_test = pd.read_csv(OUTDIR_RANDOM / "random_summary.csv")
-
-    print("")
-    print("Reload test:")
-    print("random_summary shape:", reload_test.shape)
-    display(reload_test.head())
-
-    print("")
-    print("DONE. Saved all outputs to:")
-    print(OUTDIR_RANDOM)
+print("\nSaved:", PLOTDIR / "top_50_conditions.csv")
+print("\nDone. Outputs saved to:")
+print(OUTDIR)
