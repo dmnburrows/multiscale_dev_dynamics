@@ -565,13 +565,12 @@ def compute_icg_metrics(
 
     return metric_row, gen_df
 
-
 def model_outs(pars, seed):
     pars = dict(pars)
     T = float(pars.pop("T"))
+    smoothe = float(pars.pop("smoothe", 0.05))
     pars["seed"] = int(seed)
 
-    
     model = automata_EI_hiermod(**pars)
     spikes, pop_rate = run_model(model, T=T)
     
@@ -581,9 +580,15 @@ def model_outs(pars, seed):
     
     frac_silent_frames = float(np.mean(spikes.sum(axis=0) == 0))
     frac_active_neurons = float(np.mean(spikes.sum(axis=1) > 0))
+
+    spikes_icg = exp_smooth_spikes(
+        spikes,
+        dt=float(pars["dt"]),
+        tau=smoothe,
+    )
     
     metric_row, gen_df = compute_icg_metrics(
-        spikes=spikes,
+        spikes=spikes_icg,
         dt=float(pars["dt"]),
     )
     
@@ -601,6 +606,8 @@ def model_outs(pars, seed):
         "e_w": float(pars["e_w"]),
         "i_w": float(pars["i_w"]),
         "refractory_steps": int(pars["refractory_steps"]),
+
+        "smoothe": smoothe,
     
         "mean_rate_hz": mean_rate_hz,
         "pop_rate_mean_hz": pop_rate_mean_hz,
@@ -615,10 +622,10 @@ def model_outs(pars, seed):
     gen_df["p_ext"] = float(pars["p_ext"])
     gen_df["seed"] = int(seed)
     gen_df["n_neurons"] = int(pars["n_neurons"])
+    gen_df["smoothe"] = smoothe
 
-    
-    
     return out, gen_df
+    
 
 def safe_loglog_slope(x, y, exclude_first=True, exclude_last=True):
     x = np.asarray(x, dtype=float)
@@ -648,3 +655,40 @@ def sem(x):
     if len(x) <= 1:
         return np.nan
     return float(x.std(ddof=1) / np.sqrt(len(x)))
+
+
+
+def exp_smooth_spikes(spikes, dt=0.01, tau=0.05):
+    """
+    Exponential causal smoothing of binary spike matrix.
+
+    Parameters
+    ----------
+    spikes : array, shape (n_neurons, n_time)
+        Binary or count spike raster.
+    dt : float
+        Simulation timestep in seconds.
+    tau : float
+        Exponential smoothing time constant in seconds.
+
+    Returns
+    -------
+    X : array, shape (n_neurons, n_time)
+        Smoothed activity traces.
+    """
+    import numpy as np
+
+    spikes = np.asarray(spikes, dtype=np.float32)
+
+    if tau <= 0:
+        return spikes.copy()
+
+    alpha = np.exp(-float(dt) / float(tau))
+
+    X = np.zeros_like(spikes, dtype=np.float32)
+    X[:, 0] = spikes[:, 0]
+
+    for t in range(1, spikes.shape[1]):
+        X[:, t] = alpha * X[:, t - 1] + spikes[:, t]
+
+    return X
