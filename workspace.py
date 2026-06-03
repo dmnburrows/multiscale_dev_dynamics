@@ -1,400 +1,571 @@
 # ============================================================
-# FULL PHI x THETA x P_EXT SWEEP
-# RUN + SAVE ONLY — NO PLOTTING
-#
-# Uses new icg_functions.py:
-#   fn.model_outs(pars, seed)
-#
-# Assumes fn.model_outs now:
-#   - pops "smoothe" from pars
-#   - applies exp_smooth_spikes before compute_icg_metrics
-#
-# Sweep:
-#   phi:   1.5 -> 10.0, 10 values
-#   theta: 4.0 -> 12.0, 10 values
-#   p_ext: 0.01 -> 0.10, 10 values
-#   smoothe fixed at 0.05
-#
-# Total:
-#   10 x 10 x 10 = 1000 parameter combos
-#   with N_SEEDS=5 -> 5000 simulations
-#
-# Saves:
-#   phi_theta_pext_smooth005_design.csv
-#   phi_theta_pext_smooth005_seed_metrics.csv
-#   phi_theta_pext_smooth005_generation_metrics.csv
-#   phi_theta_pext_smooth005_summary_metrics.csv
-#   phi_theta_pext_smooth005_generation_summary.csv
-#   best50_phi_theta_pext_smooth005_norm_target.csv
+# FINITE-SIZE SURVIVAL SCREEN — GEOMETRIC N, MORE SEEDS/AVALS
+# Saves after each N; resumable
 # ============================================================
 
-import os
+import sys, os, time, json, warnings
 import multiprocessing as mp
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy import sparse
+from scipy.special import expit
+from threadpoolctl import threadpool_limits
 from tqdm.auto import tqdm
 
+import admin_functions as adfn
+import trace_analyse as tfn
 import icg_functions as fn
 
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
 
 # ============================================================
-# Settings
+# 1. Settings
 # ============================================================
 
-start_dic = {'n_neurons': 2000,
- 'T': 10,
- 'dt': 0.01,
- 'refractory_steps': 2,
- 'ei_ratio': 0.2,
- 'e_w': 21.4115,
- 'i_w': 21.675,
- 'theta': 7.5,
- 'p_ext': 0.015,
- 'slope': 2.25,
-  'smoothe': 0.05}
-start_dic
+N_VALUES = np.unique(np.round(np.geomspace(100, 5000, 50)).astype(int))
 
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
+# keep this broad enough for 0.95 -> 0.05 survival crossings
+PHI_VALUES = np.linspace(2, 6.0, 20)
 
-OUTDIR = Path("/home/dburrows/DATA/BLNDEV-WILDTYPE/phi_theta_pext_smooth005_10x10x10")
+N_NETWORK_SEEDS = 10
+N_AVALANCHES_PER_MODEL = 500
+
+MAX_STEPS = 10000
+DT = 0.01
+MAX_TIME_S = MAX_STEPS * DT
+
+EVAL_STEPS = sorted(set([
+    int(round(10.0 / DT)),
+    int(round(20.0 / DT)),
+    int(round(30.0 / DT)),
+    int(round(50.0 / DT)),
+    int(MAX_STEPS),
+]))
+EVAL_STEPS = [s for s in EVAL_STEPS if s <= MAX_STEPS]
+EVAL_TIMES_S = [float(s * DT) for s in EVAL_STEPS]
+
+N_WORKERS = 30
+
+BASE_NETWORK_SEED = 31000
+BASE_TRIAL_SEED = 51000
+
+start_dic = {
+    "n_neurons": 2000,
+    "T": 10,
+    "dt": 0.01,
+    "refractory_steps": 2,
+    "ei_ratio": 0.2,
+    "e_w": 21.4115,
+    "i_w": 21.675,
+    "theta": 8.44,
+    "p_ext": 0.02,
+    "phi": 4.2,
+    "smoothe": 0.05,
+}
+
+AVALANCHE_P_EXT = 0.0
+AVALANCHE_THETA = float(start_dic["theta"])
+
+RUN_TAG = (
+    f"GEOM_N{int(N_VALUES.min())}to{int(N_VALUES.max())}_"
+    f"{len(N_VALUES)}N_"
+    f"phi{PHI_VALUES.min():.2f}to{PHI_VALUES.max():.2f}_"
+    f"{len(PHI_VALUES)}phi_"
+    f"{N_NETWORK_SEEDS}netseeds_"
+    f"{N_AVALANCHES_PER_MODEL}avals_"
+    f"{MAX_TIME_S:.0f}s"
+).replace(".", "p")
+
+OUTDIR = Path("/home/dburrows/DATA/BLNDEV-WILDTYPE") / f"finite_size_survival_{RUN_TAG}"
 OUTDIR.mkdir(parents=True, exist_ok=True)
 
-PHI_VALUES = np.linspace(1.5, 10.0, 10)
-THETA_VALUES = np.linspace(4.0, 12.0, 10)
-P_EXT_VALUES = np.linspace(0.01, 0.10, 10)
-
-SMOOTHE_FIXED = 0.05
-
-N_SEEDS = 1
-N_WORKERS = 30
-BASE_SEED = 891000
-
-T_RUN = float(start_dic.get("T", 10.0))
-
-TARGET_ALPHA = 1.5
-TARGET_BETA = 0.2
-
-print("phi:", PHI_VALUES)
-print("theta:", THETA_VALUES)
-print("p_ext:", P_EXT_VALUES)
-print("smoothe fixed:", SMOOTHE_FIXED)
-print("N seeds:", N_SEEDS)
-print("workers:", N_WORKERS)
-print("parameter combos:", len(PHI_VALUES) * len(THETA_VALUES) * len(P_EXT_VALUES))
-print("total sims:", len(PHI_VALUES) * len(THETA_VALUES) * len(P_EXT_VALUES) * N_SEEDS)
-print("OUTDIR:", OUTDIR)
+TRIALS_PATH = OUTDIR / "survival_trials.csv"
+SUMMARY_PATH = OUTDIR / "survival_summary_by_N_phi.csv"
+MODEL_SUMMARY_PATH = OUTDIR / "model_level_summary.csv"
+CONFIG_PATH = OUTDIR / "run_config.json"
+DESIGN_PATH = OUTDIR / "design.csv"
 
 
 # ============================================================
-# Minimal wrapper
+# 2. Save design/config
 # ============================================================
 
-def make_pars_from_start(updates):
-    """
-    Copy start_dic and apply updates.
+design_df = pd.DataFrame(
+    [
+        {
+            "n_neurons": int(n),
+            "phi": float(phi),
+            "network_seed_index": int(seed_idx),
+        }
+        for n in N_VALUES
+        for phi in PHI_VALUES
+        for seed_idx in range(N_NETWORK_SEEDS)
+    ]
+)
+design_df.to_csv(DESIGN_PATH, index=False)
 
-    Converts old naming:
-      slope -> phi
+config = {
+    "N_VALUES": list(map(int, N_VALUES)),
+    "PHI_VALUES": list(map(float, PHI_VALUES)),
+    "N_NETWORK_SEEDS": int(N_NETWORK_SEEDS),
+    "N_AVALANCHES_PER_MODEL": int(N_AVALANCHES_PER_MODEL),
+    "MAX_STEPS": int(MAX_STEPS),
+    "DT": float(DT),
+    "MAX_TIME_S": float(MAX_TIME_S),
+    "EVAL_STEPS": list(map(int, EVAL_STEPS)),
+    "EVAL_TIMES_S": list(map(float, EVAL_TIMES_S)),
+    "N_WORKERS": int(N_WORKERS),
+    "BASE_NETWORK_SEED": int(BASE_NETWORK_SEED),
+    "BASE_TRIAL_SEED": int(BASE_TRIAL_SEED),
+    "AVALANCHE_P_EXT": float(AVALANCHE_P_EXT),
+    "AVALANCHE_THETA": float(AVALANCHE_THETA),
+    "start_dic": start_dic,
+    "RUN_TAG": RUN_TAG,
+    "OUTDIR": str(OUTDIR),
+}
+with open(CONFIG_PATH, "w") as f:
+    json.dump(config, f, indent=2)
 
-    Keeps smoothe in pars so fn.model_outs can pop/use it.
-    """
+
+# ============================================================
+# 3. Helpers
+# ============================================================
+
+def sem(x):
+    x = pd.Series(x).replace([np.inf, -np.inf], np.nan).dropna().to_numpy(float)
+    if x.size < 2:
+        return np.nan
+    return float(np.std(x, ddof=1) / np.sqrt(x.size))
+
+
+def run_seeded_avalanche(
+    A_e_T,
+    A_i_T,
+    n,
+    n_e,
+    e_w,
+    i_w,
+    theta,
+    refractory_steps,
+    seed_node,
+    rng,
+    max_steps,
+    eval_steps,
+):
+    state = np.zeros(n, dtype=np.int16)
+    state[int(seed_node)] = 1
+
+    total_size = 0
+    peak_active = 1
+
+    eval_steps = sorted(int(s) for s in eval_steps)
+    eval_active_counts = {int(s): 0 for s in eval_steps}
+
+    for step in range(int(max_steps)):
+        active = state == 1
+        n_active = int(active.sum())
+
+        if n_active == 0:
+            return {
+                "lifetime_steps": int(step),
+                "lifetime_s": float(step * DT),
+                "size": int(total_size),
+                "peak_active": int(peak_active),
+                "persistent_at_cutoff": False,
+                "extinct": True,
+                "eval_active_counts": eval_active_counts,
+            }
+
+        total_size += n_active
+        peak_active = max(peak_active, n_active)
+
+        active_e = active[:n_e].astype(np.float32)
+        active_i = active[n_e:].astype(np.float32)
+
+        inp_e = A_e_T @ active_e
+        inp_i = A_i_T @ active_i
+
+        net = (e_w * inp_e) - (i_w * inp_i)
+        p_net = expit(net - theta)
+
+        has_input = (inp_e > 0) | (inp_i > 0)
+        p_net[~has_input] = 0.0
+
+        quiescent = state == 0
+        new_active = quiescent & (rng.random(n) < p_net)
+
+        new_state = np.zeros_like(state)
+        new_state[active] = 2
+
+        refractory = state >= 2
+        new_state[refractory] = state[refractory] + 1
+
+        done_refractory = new_state > (refractory_steps + 1)
+        new_state[done_refractory] = 0
+
+        new_state[new_active] = 1
+        state = new_state
+
+        t_after_update = step + 1
+
+        if t_after_update in eval_active_counts:
+            eval_active_counts[t_after_update] = int(np.sum(state == 1))
+
+        if not np.any(state == 1):
+            return {
+                "lifetime_steps": int(t_after_update),
+                "lifetime_s": float(t_after_update * DT),
+                "size": int(total_size),
+                "peak_active": int(peak_active),
+                "persistent_at_cutoff": False,
+                "extinct": True,
+                "eval_active_counts": eval_active_counts,
+            }
+
+    return {
+        "lifetime_steps": int(max_steps),
+        "lifetime_s": float(max_steps * DT),
+        "size": int(total_size),
+        "peak_active": int(peak_active),
+        "persistent_at_cutoff": True,
+        "extinct": False,
+        "eval_active_counts": eval_active_counts,
+    }
+
+
+def run_one_network_job(job):
+    n_neurons = int(job["n_neurons"])
+    phi = float(job["phi"])
+    seed_index = int(job["network_seed_index"])
+
     pars = dict(start_dic)
+    pars["n_neurons"] = n_neurons
+    pars["phi"] = phi
+    pars["p_ext"] = AVALANCHE_P_EXT
+    pars["theta"] = AVALANCHE_THETA
 
-    if "slope" in pars and "phi" not in pars:
-        pars["phi"] = float(pars.pop("slope"))
-    else:
-        pars.pop("slope", None)
+    model_kwargs = {
+        key: value
+        for key, value in pars.items()
+        if key not in {"T", "smoothe"}
+    }
 
-    pars["T"] = float(pars.get("T", T_RUN))
+    network_seed = int(BASE_NETWORK_SEED + n_neurons * 100 + seed_index)
+    model_kwargs["seed"] = network_seed
 
-    for k, v in updates.items():
-        pars[k] = v
+    with threadpool_limits(limits=1):
+        model = fn.automata_EI_hiermod(**model_kwargs)
 
-    return pars
+    A = np.asarray(model.A, dtype=np.uint8)
+    np.fill_diagonal(A, 0)
+
+    n = int(model.n)
+    n_e = int(model.e)
+
+    A_e_T = sparse.csr_matrix(A[:n_e, :].T.astype(np.float32))
+    A_i_T = sparse.csr_matrix(A[n_e:, :].T.astype(np.float32))
+
+    mean_out_degree = float(A.sum(axis=1).mean())
+
+    e_w = float(model.e_w)
+    i_w = float(model.i_w)
+    theta = float(model.theta)
+    refractory_steps = int(model.refractory_steps)
+
+    del A
+    del model
+
+    trial_rng = np.random.default_rng(
+        BASE_TRIAL_SEED
+        + n_neurons * 1000
+        + int(round(phi * 1000)) * 10
+        + seed_index
+    )
+
+    rows = []
+
+    for aval_i in range(N_AVALANCHES_PER_MODEL):
+        seed_node = int(trial_rng.integers(0, n_e))
+
+        out = run_seeded_avalanche(
+            A_e_T=A_e_T,
+            A_i_T=A_i_T,
+            n=n,
+            n_e=n_e,
+            e_w=e_w,
+            i_w=i_w,
+            theta=theta,
+            refractory_steps=refractory_steps,
+            seed_node=seed_node,
+            rng=trial_rng,
+            max_steps=MAX_STEPS,
+            eval_steps=EVAL_STEPS,
+        )
+
+        row = {
+            "n_neurons": n_neurons,
+            "phi": phi,
+            "network_seed_index": seed_index,
+            "network_seed": network_seed,
+            "aval_i": int(aval_i),
+            "seed_node": seed_node,
+            "mean_out_degree": mean_out_degree,
+            "p_ext": AVALANCHE_P_EXT,
+            "theta": AVALANCHE_THETA,
+            "max_steps": MAX_STEPS,
+            "cutoff_s": MAX_TIME_S,
+            "lifetime_steps": out["lifetime_steps"],
+            "lifetime_s": out["lifetime_s"],
+            "size": out["size"],
+            "peak_active": out["peak_active"],
+            "persistent_at_cutoff": out["persistent_at_cutoff"],
+            "extinct": out["extinct"],
+            "lifetime_mean_active_density": (
+                out["size"] / (n_neurons * max(out["lifetime_steps"], 1))
+            ),
+        }
+
+        for eval_step, eval_time_s in zip(EVAL_STEPS, EVAL_TIMES_S):
+            active_count = int(out["eval_active_counts"][eval_step])
+
+            if eval_step >= MAX_STEPS:
+                survived = bool(out["persistent_at_cutoff"])
+            else:
+                survived = bool(out["lifetime_steps"] >= eval_step)
+
+            row[f"survived_{eval_time_s:g}s"] = survived
+            row[f"active_count_{eval_time_s:g}s"] = active_count
+            row[f"rho_uncond_{eval_time_s:g}s"] = active_count / n_neurons
+            row[f"rho_cond_{eval_time_s:g}s"] = (
+                active_count / n_neurons if survived else np.nan
+            )
+
+        rows.append(row)
+
+    return rows
 
 
-def run_model_outs_with_updates(job):
-    phi, theta, p_ext, seed = job
-
-    pars = make_pars_from_start({
-        "phi": float(phi),
-        "theta": float(theta),
-        "p_ext": float(p_ext),
-        "smoothe": float(SMOOTHE_FIXED),
-        "seed": int(seed),
-        "n_neurons": int(start_dic["n_neurons"]),
-        "T": float(T_RUN),
-    })
-
-    out, gen_df = fn.model_outs(pars, seed=int(seed))
-
-    p_self_zero_input = float(1 / (1 + np.exp(float(theta))))
-
-    out["phi"] = float(phi)
-    out["theta"] = float(theta)
-    out["p_ext"] = float(p_ext)
-    out["smoothe"] = float(SMOOTHE_FIXED)
-    out["p_self_zero_input"] = p_self_zero_input
-
-    gen_df["phi"] = float(phi)
-    gen_df["theta"] = float(theta)
-    gen_df["p_ext"] = float(p_ext)
-    gen_df["smoothe"] = float(SMOOTHE_FIXED)
-    gen_df["p_self_zero_input"] = p_self_zero_input
-
-    return out, gen_df
+def append_rows_to_csv(rows, path):
+    df = pd.DataFrame(rows)
+    write_header = not path.exists()
+    df.to_csv(path, mode="a", header=write_header, index=False)
 
 
-# ============================================================
-# Build jobs/design
-# ============================================================
-
-jobs = []
-job_i = 0
-
-for phi in PHI_VALUES:
-    for theta in THETA_VALUES:
-        for p_ext in P_EXT_VALUES:
-            for s in range(N_SEEDS):
-                job_i += 1
-                jobs.append((
-                    float(phi),
-                    float(theta),
-                    float(p_ext),
-                    int(BASE_SEED + job_i),
-                ))
-
-design = pd.DataFrame(jobs, columns=["phi", "theta", "p_ext", "seed"])
-design["smoothe"] = SMOOTHE_FIXED
-design["p_self_zero_input"] = 1 / (1 + np.exp(design["theta"]))
-design["T"] = T_RUN
-
-design_path = OUTDIR / "phi_theta_pext_smooth005_design.csv"
-design.to_csv(design_path, index=False)
-
-print("Saved design:", design_path)
+def expected_rows_for_N():
+    return int(len(PHI_VALUES) * N_NETWORK_SEEDS * N_AVALANCHES_PER_MODEL)
 
 
-# ============================================================
-# Run jobs
-# ============================================================
+def already_completed_N():
+    if not TRIALS_PATH.exists():
+        return set()
 
-ctx = mp.get_context("fork")
+    try:
+        trials = pd.read_csv(TRIALS_PATH, usecols=["n_neurons"])
+        counts = trials["n_neurons"].dropna().astype(int).value_counts()
+        expected = expected_rows_for_N()
+        return set(counts[counts >= expected].index.astype(int))
+    except Exception:
+        return set()
 
-rows = []
-gen_rows = []
 
-N_WORKERS_ACTUAL = min(N_WORKERS, len(jobs))
+def rebuild_summary():
+    if not TRIALS_PATH.exists():
+        return None
 
-with ctx.Pool(processes=N_WORKERS_ACTUAL) as pool:
-    for out, gen_df in tqdm(
-        pool.imap_unordered(run_model_outs_with_updates, jobs, chunksize=1),
-        total=len(jobs),
-        desc="Running phi/theta/p_ext sweep with smoothe=0.05",
+    trials = pd.read_csv(TRIALS_PATH)
+
+    model_rows = []
+
+    for (n, phi, seed_idx), g in trials.groupby(
+        ["n_neurons", "phi", "network_seed_index"],
+        sort=True,
     ):
-        rows.append(out)
-        gen_rows.append(gen_df)
+        row = {
+            "n_neurons": int(n),
+            "phi": float(phi),
+            "network_seed_index": int(seed_idx),
+            "n_avalanches": int(len(g)),
+            "mean_out_degree": float(g["mean_out_degree"].iloc[0]),
+            "frac_persistent_at_cutoff": float(g["persistent_at_cutoff"].mean()),
+            "mean_lifetime_s": float(g["lifetime_s"].mean()),
+            "mean_size": float(g["size"].mean()),
+            "mean_peak_active": float(g["peak_active"].mean()),
+            "lifetime_mean_active_density": float(
+                g["lifetime_mean_active_density"].mean()
+            ),
+        }
 
+        for eval_time_s in EVAL_TIMES_S:
+            eval_step = int(round(eval_time_s / DT))
 
-# ============================================================
-# Save raw outputs
-# ============================================================
+            surv_col = f"survived_{eval_time_s:g}s"
+            uncond_col = f"rho_uncond_{eval_time_s:g}s"
+            cond_col = f"rho_cond_{eval_time_s:g}s"
+            active_col = f"active_count_{eval_time_s:g}s"
 
-df = (
-    pd.DataFrame(rows)
-    .sort_values(["phi", "theta", "p_ext", "seed"])
-    .reset_index(drop=True)
-)
+            if surv_col in g.columns:
+                survived = g[surv_col].astype(bool)
+            else:
+                survived = (
+                    g["persistent_at_cutoff"].astype(bool)
+                    if eval_step >= MAX_STEPS
+                    else g["lifetime_steps"] >= eval_step
+                )
 
-gen_all = (
-    pd.concat(gen_rows, ignore_index=True)
-    .sort_values(["phi", "theta", "p_ext", "seed", "gen"])
-    .reset_index(drop=True)
-)
+            row[f"P_surv_{eval_time_s:g}s"] = float(survived.mean())
 
-seed_metrics_path = OUTDIR / "phi_theta_pext_smooth005_seed_metrics.csv"
-gen_metrics_path = OUTDIR / "phi_theta_pext_smooth005_generation_metrics.csv"
+            row[f"active_count_{eval_time_s:g}s"] = (
+                float(g[active_col].mean()) if active_col in g.columns else np.nan
+            )
 
-df.to_csv(seed_metrics_path, index=False)
-gen_all.to_csv(gen_metrics_path, index=False)
+            row[f"rho_uncond_{eval_time_s:g}s"] = (
+                float(g[uncond_col].mean()) if uncond_col in g.columns else np.nan
+            )
 
-print("Saved:", seed_metrics_path)
-print("Saved:", gen_metrics_path)
+            row[f"rho_cond_{eval_time_s:g}s"] = (
+                float(g[cond_col].mean(skipna=True)) if cond_col in g.columns else np.nan
+            )
 
+        model_rows.append(row)
 
-# ============================================================
-# Summaries using fn.sem
-# ============================================================
-
-summary = (
-    df
-    .groupby(["phi", "theta", "p_ext", "smoothe"], as_index=False)
-    .agg(
-        n=("seed", "count"),
-
-        p_self_zero_input=("p_self_zero_input", "mean"),
-
-        mv_alpha_mean=("mv_alpha", "mean"),
-        mv_alpha_sem=("mv_alpha", fn.sem),
-        mv_r2_mean=("mv_r2", "mean"),
-        mv_r2_sem=("mv_r2", fn.sem),
-
-        ts_beta_mean=("ts_beta", "mean"),
-        ts_beta_sem=("ts_beta", fn.sem),
-        ts_r2_mean=("ts_r2", "mean"),
-        ts_r2_sem=("ts_r2", fn.sem),
-
-        mv_alpha_norm_mean=("mv_alpha_norm", "mean"),
-        mv_alpha_norm_sem=("mv_alpha_norm", fn.sem),
-        mv_r2_norm_mean=("mv_r2_norm", "mean"),
-        mv_r2_norm_sem=("mv_r2_norm", fn.sem),
-
-        ts_beta_norm_mean=("ts_beta_norm", "mean"),
-        ts_beta_norm_sem=("ts_beta_norm", fn.sem),
-        ts_r2_norm_mean=("ts_r2_norm", "mean"),
-        ts_r2_norm_sem=("ts_r2_norm", fn.sem),
-
-        mean_variance_l0_mean=("mean_variance_l0", "mean"),
-        timescale_l0_mean=("timescale_l0", "mean"),
-
-        mean_rate_hz_mean=("mean_rate_hz", "mean"),
-        mean_rate_hz_sem=("mean_rate_hz", fn.sem),
-
-        pop_rate_mean_hz_mean=("pop_rate_mean_hz", "mean"),
-        pop_rate_std_hz_mean=("pop_rate_std_hz", "mean"),
-
-        frac_silent_frames_mean=("frac_silent_frames", "mean"),
-        frac_silent_frames_sem=("frac_silent_frames", fn.sem),
-
-        frac_active_neurons_mean=("frac_active_neurons", "mean"),
-        frac_active_neurons_sem=("frac_active_neurons", fn.sem),
-
-        n_icg_gens_mean=("n_icg_gens", "mean"),
+    model_df = (
+        pd.DataFrame(model_rows)
+        .sort_values(["n_neurons", "phi", "network_seed_index"])
+        .reset_index(drop=True)
     )
-    .sort_values(["phi", "theta", "p_ext"])
-    .reset_index(drop=True)
-)
+    model_df.to_csv(MODEL_SUMMARY_PATH, index=False)
 
-summary["target_score_raw"] = (
-    np.abs(summary["mv_alpha_mean"] - TARGET_ALPHA)
-    + 2.0 * np.abs(summary["ts_beta_mean"] - TARGET_BETA)
-)
+    base_metrics = [
+        "mean_out_degree",
+        "frac_persistent_at_cutoff",
+        "mean_lifetime_s",
+        "mean_size",
+        "mean_peak_active",
+        "lifetime_mean_active_density",
+    ]
 
-summary["target_score_norm"] = (
-    np.abs(summary["mv_alpha_norm_mean"] - TARGET_ALPHA)
-    + 2.0 * np.abs(summary["ts_beta_norm_mean"] - TARGET_BETA)
-)
+    eval_metrics = []
+    for eval_time_s in EVAL_TIMES_S:
+        eval_metrics.extend([
+            f"P_surv_{eval_time_s:g}s",
+            f"active_count_{eval_time_s:g}s",
+            f"rho_uncond_{eval_time_s:g}s",
+            f"rho_cond_{eval_time_s:g}s",
+        ])
 
-summary["target_score_norm_r2pen"] = (
-    summary["target_score_norm"]
-    + 0.5 * np.maximum(0, 0.8 - summary["mv_r2_norm_mean"])
-    + 0.5 * np.maximum(0, 0.8 - summary["ts_r2_norm_mean"])
-)
+    metrics = base_metrics + eval_metrics
+    summary_rows = []
 
-summary_path = OUTDIR / "phi_theta_pext_smooth005_summary_metrics.csv"
-summary.to_csv(summary_path, index=False)
+    for (n, phi), g in model_df.groupby(["n_neurons", "phi"], sort=True):
+        row = {
+            "n_neurons": int(n),
+            "phi": float(phi),
+            "n_networks": int(len(g)),
+        }
 
-print("Saved:", summary_path)
+        for metric in metrics:
+            row[f"{metric}_mean"] = float(g[metric].mean())
+            row[f"{metric}_sem"] = sem(g[metric])
 
+        summary_rows.append(row)
 
-gen_summary = (
-    gen_all
-    .groupby(["phi", "theta", "p_ext", "smoothe", "gen"], as_index=False)
-    .agg(
-        n=("seed", "count"),
-
-        p_self_zero_input=("p_self_zero_input", "mean"),
-
-        n_clusters_mean=("n_clusters", "mean"),
-
-        mean_cluster_size_mean=("mean_cluster_size", "mean"),
-        mean_cluster_size_sem=("mean_cluster_size", fn.sem),
-
-        mean_activity_mean=("mean_activity", "mean"),
-        mean_activity_sem=("mean_activity", fn.sem),
-
-        mean_variance_mean=("mean_variance", "mean"),
-        mean_variance_sem=("mean_variance", fn.sem),
-
-        mean_variance_norm_mean=("mean_variance_norm", "mean"),
-        mean_variance_norm_sem=("mean_variance_norm", fn.sem),
-
-        timescale_mean=("timescale", "mean"),
-        timescale_sem=("timescale", fn.sem),
-
-        timescale_norm_mean=("timescale_norm", "mean"),
-        timescale_norm_sem=("timescale_norm", fn.sem),
-
-        corr_kurtosis_mean=("corr_kurtosis", "mean"),
-        corr_kurtosis_sem=("corr_kurtosis", fn.sem),
+    summary = (
+        pd.DataFrame(summary_rows)
+        .sort_values(["n_neurons", "phi"])
+        .reset_index(drop=True)
     )
-    .sort_values(["phi", "theta", "p_ext", "gen"])
-    .reset_index(drop=True)
-)
+    summary.to_csv(SUMMARY_PATH, index=False)
 
-gen_summary_path = OUTDIR / "phi_theta_pext_smooth005_generation_summary.csv"
-gen_summary.to_csv(gen_summary_path, index=False)
+    print("Saved model summary:", MODEL_SUMMARY_PATH)
+    print("Saved pooled summary:", SUMMARY_PATH)
+    print("Available P_surv columns:")
+    print([c for c in summary.columns if c.startswith("P_surv")])
 
-print("Saved:", gen_summary_path)
+    return summary
 
 
 # ============================================================
-# Best rows
+# 4. Main
 # ============================================================
 
-best50 = (
-    summary
-    .replace([np.inf, -np.inf], np.nan)
-    .dropna(subset=["mv_alpha_norm_mean", "ts_beta_norm_mean", "target_score_norm"])
-    .sort_values("target_score_norm")
-    .head(50)
-    .reset_index(drop=True)
-)
+def main():
+    print("FINITE-SIZE SURVIVAL SCREEN — GEOMETRIC N, MORE SEEDS/AVALS")
+    print(f"OUTDIR: {OUTDIR}")
+    print(f"N_VALUES: {N_VALUES}")
+    print(f"PHI_VALUES: {np.round(PHI_VALUES, 4)}")
+    print(f"N_NETWORK_SEEDS: {N_NETWORK_SEEDS}")
+    print(f"N_AVALANCHES_PER_MODEL: {N_AVALANCHES_PER_MODEL}")
+    print(f"MAX_STEPS: {MAX_STEPS} = {MAX_TIME_S:.1f} s")
+    print(f"EVAL_TIMES_S: {EVAL_TIMES_S}")
+    print(f"N_WORKERS: {N_WORKERS}")
+    print(f"Expected rows per N: {expected_rows_for_N():,}")
+    print(f"Total networks: {len(N_VALUES) * len(PHI_VALUES) * N_NETWORK_SEEDS:,}")
+    print(f"Total avalanches: {len(N_VALUES) * len(PHI_VALUES) * N_NETWORK_SEEDS * N_AVALANCHES_PER_MODEL:,}")
 
-best50["rank"] = np.arange(1, len(best50) + 1)
+    completed = already_completed_N()
+    print(f"Already completed N: {sorted(completed)}")
 
-best_path = OUTDIR / "best50_phi_theta_pext_smooth005_norm_target.csv"
-best50.to_csv(best_path, index=False)
+    ctx = mp.get_context("fork")
 
-print("\nBest 50:")
-print(
-    best50[
-        [
-            "rank",
-            "phi", "theta", "p_ext", "smoothe", "p_self_zero_input",
-            "target_score_norm",
-            "mv_alpha_norm_mean", "mv_r2_norm_mean",
-            "ts_beta_norm_mean", "ts_r2_norm_mean",
-            "mean_rate_hz_mean",
-            "frac_silent_frames_mean",
-            "frac_active_neurons_mean",
-            "n",
+    for n_neurons in N_VALUES:
+        n_neurons = int(n_neurons)
+
+        if n_neurons in completed:
+            print(f"\nSkipping N={n_neurons}; already complete in {TRIALS_PATH}")
+            continue
+
+        print("\n================================================")
+        print(f"Starting N={n_neurons}")
+        print("================================================")
+
+        jobs = [
+            {
+                "n_neurons": int(n_neurons),
+                "phi": float(phi),
+                "network_seed_index": int(seed_index),
+            }
+            for phi in PHI_VALUES
+            for seed_index in range(N_NETWORK_SEEDS)
         ]
-    ].round(6).to_string(index=False)
-)
 
-print("Saved:", best_path)
+        rng_jobs = np.random.default_rng(123 + n_neurons)
+        rng_jobs.shuffle(jobs)
+
+        t0 = time.perf_counter()
+        rows_for_N = []
+
+        with ctx.Pool(processes=N_WORKERS) as pool:
+            for rows_local in tqdm(
+                pool.imap_unordered(run_one_network_job, jobs),
+                total=len(jobs),
+                desc=f"N={n_neurons}",
+            ):
+                rows_for_N.extend(rows_local)
+
+        append_rows_to_csv(rows_for_N, TRIALS_PATH)
+        summary = rebuild_summary()
+
+        elapsed = time.perf_counter() - t0
+
+        print(f"Finished N={n_neurons}")
+        print(f"Rows added: {len(rows_for_N):,}")
+        print(f"Elapsed: {elapsed / 60:.2f} min")
+        print(f"Saved trials: {TRIALS_PATH}")
+        print(f"Saved summary: {SUMMARY_PATH}")
+
+        if summary is not None:
+            completed_now = sorted(summary["n_neurons"].unique().astype(int))
+            print("Completed N in summary:", completed_now)
+
+    print("\nAll requested N values complete or already present.")
+    print(f"Final trials CSV: {TRIALS_PATH}")
+    print(f"Final model summary CSV: {MODEL_SUMMARY_PATH}")
+    print(f"Final pooled summary CSV: {SUMMARY_PATH}")
+    print(f"Run config JSON: {CONFIG_PATH}")
 
 
-# ============================================================
-# Done
-# ============================================================
-
-print("\nDone.")
-print("smoothe used:", SMOOTHE_FIXED)
-print("Total parameter combos:", len(PHI_VALUES) * len(THETA_VALUES) * len(P_EXT_VALUES))
-print("Total simulations:", len(jobs))
-print("Outputs saved to:", OUTDIR)
-
-print("\nFiles:")
-print("  design:             ", design_path)
-print("  seed metrics:       ", seed_metrics_path)
-print("  generation metrics: ", gen_metrics_path)
-print("  summary:            ", summary_path)
-print("  generation summary: ", gen_summary_path)
-print("  best 50:            ", best_path)
+if __name__ == "__main__":
+    main()
