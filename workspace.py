@@ -1,5 +1,5 @@
 # ============================================================
-# GRID e_w / i_w SEARCH
+# GRID e_w / phi SEARCH, fixed i_w
 # Sparse seeded avalanches + per-avalanche autocorr
 # + spontaneous ICG/static-dynamic scaling on same network
 # Warning-safe ICG block
@@ -36,35 +36,6 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 # Settings
 # ============================================================
 
-OUTDIR = Path(
-    "/home/dburrows/DATA/BLNDEV-WILDTYPE/"
-    "grid_ew_iw_sparse_avalanche_icg_20x20_20phis_5seeds_10000avals"
-)
-OUTDIR.mkdir(parents=True, exist_ok=True)
-
-TRIALDIR = OUTDIR / "avalanche_trials_by_network"
-TRIALDIR.mkdir(exist_ok=True)
-
-ICGDIR = OUTDIR / "icg_rows_by_network"
-ICGDIR.mkdir(exist_ok=True)
-
-N_WORKERS = 30
-N_SEEDS = 5
-N_AVALANCHES_PER_NETWORK = 10000
-MAX_STEPS = 1000
-BASE_SEED = 91919
-
-E_W_RANGE = (0.5, 20.0)
-I_W_RANGE = (0.0, 150.0)
-
-N_EW = 20
-N_IW = 20
-
-EW_VALUES = np.linspace(E_W_RANGE[0], E_W_RANGE[1], N_EW)
-IW_VALUES = np.linspace(I_W_RANGE[0], I_W_RANGE[1], N_IW)
-
-PHI_VALUES = np.linspace(1.5, 6.0, 20)
-
 start_dic = {
     "n_neurons": 2000,
     "T": 10,
@@ -78,6 +49,35 @@ start_dic = {
     "phi": 4.2,
     "smoothe": 0.05,
 }
+
+OUTDIR = Path(
+    "/home/dburrows/DATA/BLNDEV-WILDTYPE/"
+    "grid_ew_phi_iw22p4_sparse_avalanche_icg_20ew_20phis_20seeds_10000avals"
+)
+OUTDIR.mkdir(parents=True, exist_ok=True)
+
+TRIALDIR = OUTDIR / "avalanche_trials_by_network"
+TRIALDIR.mkdir(exist_ok=True)
+
+ICGDIR = OUTDIR / "icg_rows_by_network"
+ICGDIR.mkdir(exist_ok=True)
+
+N_WORKERS = 30
+N_SEEDS = 20
+N_AVALANCHES_PER_NETWORK = 10000
+MAX_STEPS = 1000
+BASE_SEED = 91919
+
+E_W_RANGE = (0.5, 18.0)
+I_W_FIXED = float(start_dic["i_w"])
+
+N_EW = 20
+N_IW = 1
+
+EW_VALUES = np.linspace(E_W_RANGE[0], E_W_RANGE[1], N_EW)
+IW_VALUES = np.array([I_W_FIXED], dtype=float)
+
+PHI_VALUES = np.linspace(1.5, 6.0, 20)
 
 # Force avalanche/spontaneous p_ext to zero
 P_EXT_RUN = 0.0
@@ -102,6 +102,7 @@ SAVE_ICG_ROWS = True
 # ============================================================
 
 config = {
+    "scan_type": "e_w_phi_grid_fixed_i_w",
     "N_WORKERS": N_WORKERS,
     "N_SEEDS": N_SEEDS,
     "N_AVALANCHES_PER_NETWORK": N_AVALANCHES_PER_NETWORK,
@@ -109,6 +110,7 @@ config = {
     "BASE_SEED": BASE_SEED,
     "EW_VALUES": EW_VALUES.tolist(),
     "IW_VALUES": IW_VALUES.tolist(),
+    "I_W_FIXED": I_W_FIXED,
     "PHI_VALUES": PHI_VALUES.tolist(),
     "P_EXT_RUN": P_EXT_RUN,
     "SEED_ONLY_EXCITATORY": SEED_ONLY_EXCITATORY,
@@ -120,7 +122,9 @@ with open(OUTDIR / "config.json", "w") as f:
     json.dump(config, f, indent=2)
 
 print("OUTDIR:", OUTDIR)
-print("Total ew/iw combos:", len(EW_VALUES) * len(IW_VALUES))
+print("Total e_w values:", len(EW_VALUES))
+print("Fixed i_w:", I_W_FIXED)
+print("Total phi values:", len(PHI_VALUES))
 print("Total networks:", len(EW_VALUES) * len(IW_VALUES) * len(PHI_VALUES) * N_SEEDS)
 print("Total avalanches:", len(EW_VALUES) * len(IW_VALUES) * len(PHI_VALUES) * N_SEEDS * N_AVALANCHES_PER_NETWORK)
 
@@ -454,11 +458,18 @@ def run_seeded_avalanche_sparse(
     br = branching_metrics(active_counts, extinct)
 
     if active_counts.size >= 5 and np.var(active_counts) > 0:
-        avalanche_tau_s = fn.timescale(
-            active_counts[np.newaxis, :].astype(float),
-            max_lag=min(3.0, max(2 * dt, duration_s / 2)),
-            dt=float(dt),
-        )
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="invalid value encountered in divide",
+                category=RuntimeWarning,
+            )
+            with np.errstate(invalid="ignore", divide="ignore"):
+                avalanche_tau_s = fn.timescale(
+                    active_counts[np.newaxis, :].astype(float),
+                    max_lag=min(3.0, max(2 * dt, duration_s / 2)),
+                    dt=float(dt),
+                )
     else:
         avalanche_tau_s = np.nan
 
@@ -885,6 +896,7 @@ def run_one_network(job):
 
 # ============================================================
 # Build design
+# e_w x fixed i_w x phi x seed
 # ============================================================
 
 jobs = []
@@ -912,6 +924,10 @@ design.to_csv(OUTDIR / "grid_design.csv", index=False)
 
 print("Saved design:", OUTDIR / "grid_design.csv")
 print("N jobs:", len(jobs))
+print("Unique e_w:", design["e_w"].nunique())
+print("Unique i_w:", design["i_w"].nunique(), design["i_w"].unique())
+print("Unique phi:", design["phi"].nunique())
+print("Unique seeds:", design["seed_idx"].nunique())
 
 
 # ============================================================
@@ -927,7 +943,7 @@ with ctx.Pool(processes=N_WORKERS) as pool:
     for avalanche_row, icg_row in tqdm(
         pool.imap_unordered(run_one_network, jobs, chunksize=1),
         total=len(jobs),
-        desc="e_w x i_w x phi x seed grid",
+        desc="e_w x fixed i_w x phi x seed grid",
     ):
         avalanche_summary_rows.append(avalanche_row)
         icg_summary_rows.append(icg_row)
