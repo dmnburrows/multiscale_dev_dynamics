@@ -1,6 +1,13 @@
+# ============================================================
+# Exact phi grid from the LLR dataset
+# Seeded avalanches + per-avalanche autocorrelation timescale
+# + spontaneous ICG on the same network
+#
+# Linux/fork workflow.
+# ============================================================
+
 import os
 
-# Set before importing NumPy/Pandas
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -8,19 +15,24 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import json
 import inspect
+import warnings
 import multiprocessing as mp
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy import sparse
+from scipy.special import expit
 from tqdm.auto import tqdm
+from threadpoolctl import threadpool_limits
 
 import icg_functions as fn
 
+# ============================================================
+# Settings
+# ============================================================
 
-# ============================================================
-# Main parameters — same as previous run
-# ============================================================
+BASE = Path("/home/dburrows/DATA/BLNDEV-WILDTYPE")
 
 start_dic = {
     "n_neurons": 2000,
@@ -31,394 +43,870 @@ start_dic = {
     "e_w": 11.7,
     "i_w": 22.4,
     "theta": 8.44,
-    "p_ext": 0.00,
+    "p_ext": 0.0,
     "phi": 4.2,
     "smoothe": 0.05,
 }
 
-
-# ============================================================
-# Sweep settings
-# ============================================================
-
-OUTDIR = Path(
-    "/home/dburrows/DATA/BLNDEV-WILDTYPE/"
-    "phi_scaling_newpars_ew11p7_iw22p4_pext0_"
-    "phi2p5to4p5_30steps_40seeds_smooth005"
+LLR_DATA_DIR = BASE / (
+    "new_ew11p7_iw22p4_phi2p5to4p5_"
+    "N2000_20phis_50seeds_10000avals_max1000"
 )
-OUTDIR.mkdir(parents=True, exist_ok=True)
 
-PHI_VALUES = np.linspace(2.5, 4.5, 30)
+LLR_SOURCE = LLR_DATA_DIR / "avalanche_trials_phi_sweep.csv"
 
-N_SEEDS = 40
-N_WORKERS = 30
-BASE_SEED = 950000
+N_WORKERS = 20
+N_SEEDS = 50
+N_AVALANCHES_PER_NETWORK = 10000
+MAX_STEPS = 1000
+BASE_SEED = 93939
 
-SMOOTHE = float(start_dic["smoothe"])
 T_RUN = float(start_dic["T"])
+SMOOTHE = float(start_dic["smoothe"])
+BURN_IN_S = 2.0
 
 TARGET_MV = 1.50
 TARGET_TAU = 0.20
 
-with open(OUTDIR / "config.json", "w") as f:
-    json.dump(
-        {
-            "PHI_VALUES": PHI_VALUES.tolist(),
-            "N_SEEDS": N_SEEDS,
-            "N_WORKERS": N_WORKERS,
-            "BASE_SEED": BASE_SEED,
-            "SMOOTHE": SMOOTHE,
-            "T_RUN": T_RUN,
-            "TARGET_MV": TARGET_MV,
-            "TARGET_TAU": TARGET_TAU,
-            "start_dic": start_dic,
-        },
-        f,
-        indent=2,
-    )
-
-print("OUTDIR:", OUTDIR)
-print("TOTAL SIMS:", len(PHI_VALUES) * N_SEEDS)
-print("WORKERS:", N_WORKERS)
-print("PHI SPACING:", PHI_VALUES[1] - PHI_VALUES[0])
-
+# Assigned in main() before starting fork workers.
+OUTDIR = None
+TRIALDIR = None
+ICGDIR = None
 
 # ============================================================
 # Helpers
 # ============================================================
 
-def sem(x):
-    x = pd.Series(x).replace([np.inf, -np.inf], np.nan).dropna()
+def load_exact_phi_grid(path):
+    phi_values = set()
+
+    for chunk in pd.read_csv(
+        path,
+        usecols=["phi"],
+        chunksize=500_000,
+    ):
+        values = pd.to_numeric(
+            chunk["phi"], errors="raise"
+        ).to_numpy(float)
+
+        if not np.isfinite(values).all():
+            raise ValueError("Nonfinite phi values in the LLR source.")
+
+        phi_values.update(values.tolist())
+
+    values = np.array(sorted(phi_values), dtype=float)
+
+    if values.size < 2:
+        raise ValueError("Expected at least two phi values.")
+
+    return values
+
+
+def safe_values(x):
     return (
-        float(x.std(ddof=1) / np.sqrt(len(x)))
-        if len(x) > 1
-        else np.nan
+        pd.Series(x)
+        .replace([np.inf, -np.inf], np.nan)
+        .dropna()
+        .to_numpy(float)
     )
 
 
-def fit_power_slope(
-    g,
-    y_col,
-    x_col="mean_cluster_size",
-    exclude_first=True,
-    exclude_last=False,
-    min_points=3,
-):
-    dfit = (
-        g[[x_col, y_col]]
+def safe_mean(x):
+    x = safe_values(x)
+    return float(np.mean(x)) if x.size else np.nan
+
+
+def safe_percentile(x, q):
+    x = safe_values(x)
+    return float(np.percentile(x, q)) if x.size else np.nan
+
+
+def sem(x):
+    x = safe_values(x)
+    return (
+        float(np.std(x, ddof=1) / np.sqrt(x.size))
+        if x.size > 1 else np.nan
+    )
+
+
+def count_valid(x):
+    return int(len(safe_values(x)))
+
+
+def response_decay_timescale(active_counts, dt):
+    x = np.asarray(active_counts, dtype=float)
+
+    if x.size == 0:
+        return np.nan
+
+    peak = float(np.max(x))
+    if peak <= 0:
+        return 0.0
+
+    peak_idx = int(np.argmax(x))
+    post_peak = x[peak_idx:]
+    below = np.where(post_peak <= peak / np.e)[0]
+
+    if below.size:
+        return float(below[0] * dt)
+
+    return float((post_peak.size - 1) * dt)
+
+
+def branching_metrics(active_counts, extinct):
+    counts = np.asarray(active_counts, dtype=float)
+
+    if extinct:
+        x = counts
+        y = np.concatenate([counts[1:], [0.0]])
+    else:
+        x = counts[:-1]
+        y = counts[1:]
+
+    keep = np.isfinite(x) & np.isfinite(y) & (x > 0)
+    x, y = x[keep], y[keep]
+
+    result = {
+        "sigma_origin": np.nan,
+        "br_reg_slope": np.nan,
+        "br_reg_intercept": np.nan,
+        "br_reg_r2": np.nan,
+        "br_n_pairs": int(x.size),
+    }
+
+    if x.size < 2:
+        return result
+
+    denom = float(np.sum(x * x))
+    result["sigma_origin"] = (
+        float(np.sum(x * y) / denom)
+        if denom > 0 else np.nan
+    )
+
+    X = np.column_stack([np.ones_like(x), x])
+    beta, *_ = np.linalg.lstsq(X, y, rcond=None)
+
+    y_hat = X @ beta
+    ss_res = float(np.sum((y - y_hat) ** 2))
+    ss_tot = float(np.sum((y - np.mean(y)) ** 2))
+
+    result.update({
+        "br_reg_intercept": float(beta[0]),
+        "br_reg_slope": float(beta[1]),
+        "br_reg_r2": (
+            float(1.0 - ss_res / ss_tot)
+            if ss_tot > 0 else np.nan
+        ),
+    })
+
+    return result
+
+
+def local_connectivity_metrics(A, n_e):
+    return {
+        "edge_count": int(A.sum()),
+        "mean_out_degree": float(A.sum(axis=1).mean()),
+        "std_out_degree": float(A.sum(axis=1).std()),
+        "mean_e_out_degree_all": float(
+            A[:n_e, :].sum(axis=1).mean()
+        ),
+        "mean_e_out_degree_e": float(
+            A[:n_e, :n_e].sum(axis=1).mean()
+        ),
+        "edge_density": float(
+            A.sum() / max(A.shape[0] * (A.shape[0] - 1), 1)
+        ),
+    }
+
+
+def pop_autocorr_tau(x, dt, max_lag_s=3.0):
+    x = np.asarray(x, dtype=float)
+    x = x[np.isfinite(x)]
+
+    if x.size < 10:
+        return np.nan
+
+    x = x - x.mean()
+    denom = np.sum(x * x)
+
+    if denom <= 0:
+        return np.nan
+
+    max_lag = min(int(max_lag_s / dt), x.size // 2)
+
+    if max_lag < 2:
+        return np.nan
+
+    ac = np.empty(max_lag + 1)
+    ac[0] = 1.0
+
+    for lag in range(1, max_lag + 1):
+        ac[lag] = np.sum(x[:-lag] * x[lag:]) / denom
+
+    ac[~np.isfinite(ac)] = 0.0
+    crossing = np.where(ac[1:] <= 0)[0]
+
+    if crossing.size:
+        ac = ac[:crossing[0] + 2]
+
+    return float(np.trapezoid(ac, dx=dt))
+
+
+def fit_power_slope(g, y_col):
+    d = (
+        g[["mean_cluster_size", y_col]]
         .replace([np.inf, -np.inf], np.nan)
         .dropna()
     )
-    dfit = dfit[
-        (dfit[x_col] > 0) & (dfit[y_col] > 0)
-    ].sort_values(x_col)
 
-    if exclude_first and len(dfit) > 0:
-        dfit = dfit.iloc[1:]
+    d = d.loc[
+        (d["mean_cluster_size"] > 0)
+        & (d[y_col] > 0)
+    ].sort_values("mean_cluster_size")
 
-    if exclude_last and len(dfit) > 0:
-        dfit = dfit.iloc[:-1]
+    # Same fitting convention: exclude first, retain last.
+    d = d.iloc[1:]
 
-    if len(dfit) < min_points:
-        return np.nan, np.nan, int(len(dfit))
+    if len(d) < 3:
+        return np.nan, np.nan, int(len(d))
 
-    logx = np.log10(dfit[x_col].to_numpy(float))
-    logy = np.log10(dfit[y_col].to_numpy(float))
+    logx = np.log10(d["mean_cluster_size"].to_numpy(float))
+    logy = np.log10(d[y_col].to_numpy(float))
 
     slope, intercept = np.polyfit(logx, logy, 1)
     pred = intercept + slope * logx
 
     ss_res = np.sum((logy - pred) ** 2)
-    ss_tot = np.sum((logy - np.mean(logy)) ** 2)
+    ss_tot = np.sum((logy - logy.mean()) ** 2)
     r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else np.nan
 
-    return float(slope), float(r2), int(len(dfit))
+    return float(slope), float(r2), int(len(d))
 
 
-def make_pars(phi, seed):
+def standardise_gen_df(gen_df):
+    gen_df = gen_df.copy()
+
+    aliases = {
+        "MV": "mean_variance",
+        "MV_norm": "mean_variance_norm",
+        "TAU": "timescale",
+        "TAU_norm": "timescale_norm",
+        "corr_kurtosis": "kurtosis_corr",
+    }
+
+    for old, new in aliases.items():
+        if new not in gen_df.columns and old in gen_df.columns:
+            gen_df[new] = gen_df[old]
+
+    return gen_df
+
+
+def make_model_kwargs(phi, seed):
     pars = dict(start_dic)
     pars.pop("T", None)
     pars.pop("smoothe", None)
 
-    sig = inspect.signature(fn.automata_EI_hiermod.__init__)
-    valid_args = set(sig.parameters.keys())
-
-    if "slope" in valid_args:
-        pars.pop("phi", None)
-        pars["slope"] = float(phi)
-    elif "phi" in valid_args:
-        pars.pop("slope", None)
-        pars["phi"] = float(phi)
-    else:
-        raise ValueError("Model expects neither 'slope' nor 'phi'.")
-
+    pars["phi"] = float(phi)
     pars["seed"] = int(seed)
+    pars["p_ext"] = 0.0
+
+    valid_args = set(
+        inspect.signature(fn.automata_EI_hiermod.__init__).parameters
+    )
+
+    if "phi" not in valid_args:
+        if "slope" in valid_args:
+            pars["slope"] = pars.pop("phi")
+        else:
+            raise ValueError("Model exposes neither phi nor slope.")
+
     return {k: v for k, v in pars.items() if k in valid_args}
 
-
-def run_one(job):
-    sim_id, phi, seed, seed_idx = job
-
-    pars = make_pars(phi=phi, seed=seed)
-
-    model = fn.automata_EI_hiermod(**pars)
-    spikes, pop_rate = fn.run_model(model, T=T_RUN)
-
-    dt = float(pars["dt"])
-
-    mean_rate_hz = float(spikes.mean() / dt)
-    pop_rate_mean_hz = float(np.mean(pop_rate))
-    pop_rate_std_hz = float(np.std(pop_rate))
-    frac_silent_frames = float(np.mean(spikes.sum(axis=0) == 0))
-    frac_active_neurons = float(np.mean(spikes.sum(axis=1) > 0))
-
-    spikes_smooth = fn.exp_smooth_spikes(
-        spikes,
-        dt=dt,
-        tau=SMOOTHE,
-    )
-
-    metric_row, gen_df = fn.compute_icg_metrics(
-        spikes=spikes_smooth,
-        dt=dt,
-    )
-
-    gen_df = gen_df.copy()
-
-    rename_map = {
-        "mean_variance": "MV",
-        "mean_variance_norm": "MV_norm",
-        "timescale": "TAU",
-        "timescale_norm": "TAU_norm",
-        "corr_kurtosis": "kurtosis_corr",
-    }
-
-    for old, new in rename_map.items():
-        if old in gen_df.columns and new not in gen_df.columns:
-            gen_df[new] = gen_df[old]
-
-    if "MV" in gen_df.columns and "mean_variance" not in gen_df.columns:
-        gen_df["mean_variance"] = gen_df["MV"]
-
-    if "MV_norm" in gen_df.columns and "mean_variance_norm" not in gen_df.columns:
-        gen_df["mean_variance_norm"] = gen_df["MV_norm"]
-
-    if "TAU" in gen_df.columns and "timescale" not in gen_df.columns:
-        gen_df["timescale"] = gen_df["TAU"]
-
-    if "TAU_norm" in gen_df.columns and "timescale_norm" not in gen_df.columns:
-        gen_df["timescale_norm"] = gen_df["TAU_norm"]
-
-    if "kurtosis_corr" not in gen_df.columns and "corr_kurtosis" in gen_df.columns:
-        gen_df["kurtosis_corr"] = gen_df["corr_kurtosis"]
-
-    mv_y = (
-        "mean_variance_norm"
-        if "mean_variance_norm" in gen_df.columns
-        else "MV_norm"
-    )
-    tau_y = (
-        "timescale_norm"
-        if "timescale_norm" in gen_df.columns
-        else "TAU_norm"
-    )
-
-    MV_alpha, MV_r2, MV_n_points = fit_power_slope(
-        gen_df,
-        y_col=mv_y,
-        x_col="mean_cluster_size",
-        exclude_first=True,
-        exclude_last=False,
-    )
-
-    TAU_beta, TAU_r2, TAU_n_points = fit_power_slope(
-        gen_df,
-        y_col=tau_y,
-        x_col="mean_cluster_size",
-        exclude_first=True,
-        exclude_last=False,
-    )
-
-    score = (
-        abs(MV_alpha - TARGET_MV)
-        + 2.0 * abs(TAU_beta - TARGET_TAU)
-        if np.isfinite(MV_alpha) and np.isfinite(TAU_beta)
-        else np.nan
-    )
-
-    exp_row = {
-        "sim_id": int(sim_id),
-        "phi": float(phi),
-        "seed": int(seed),
-        "seed_idx": int(seed_idx),
-
-        "MV_alpha": MV_alpha,
-        "MV_r2": MV_r2,
-        "MV_n_points": MV_n_points,
-
-        "TAU_beta": TAU_beta,
-        "TAU_r2": TAU_r2,
-        "TAU_n_points": TAU_n_points,
-
-        "score": score,
-
-        "mean_rate_hz": mean_rate_hz,
-        "pop_rate_mean_hz": pop_rate_mean_hz,
-        "pop_rate_std_hz": pop_rate_std_hz,
-        "frac_silent_frames": frac_silent_frames,
-        "frac_active_neurons": frac_active_neurons,
-
-        "dt": dt,
-        "T": float(T_RUN),
-        "smoothe": float(SMOOTHE),
-
-        "theta": float(pars.get("theta", np.nan)),
-        "p_ext": float(pars.get("p_ext", np.nan)),
-        "e_w": float(pars.get("e_w", np.nan)),
-        "i_w": float(pars.get("i_w", np.nan)),
-        "ei_ratio": float(pars.get("ei_ratio", np.nan)),
-        "refractory_steps": int(pars.get("refractory_steps", -1)),
-    }
-
-    gen_df["sim_id"] = int(sim_id)
-    gen_df["phi"] = float(phi)
-    gen_df["seed"] = int(seed)
-    gen_df["seed_idx"] = int(seed_idx)
-    gen_df["mean_rate_hz"] = mean_rate_hz
-    gen_df["smoothe"] = float(SMOOTHE)
-
-    return exp_row, gen_df
-
-
 # ============================================================
-# Build design
+# Seeded avalanche runner — unchanged dynamics
 # ============================================================
 
-jobs = []
-sim_id = 0
+def run_seeded_avalanche_sparse(
+    A_e_T, A_i_T, n, n_e,
+    e_w, i_w, theta, refractory_steps,
+    dt, seed_node, rng, max_steps,
+):
+    state = np.zeros(n, dtype=np.int16)
+    state[int(seed_node)] = 1
 
-for phi in PHI_VALUES:
-    for seed_idx in range(N_SEEDS):
-        seed = BASE_SEED + sim_id
-        jobs.append(
-            (int(sim_id), float(phi), int(seed), int(seed_idx))
+    active_counts = np.empty(int(max_steps), dtype=np.int32)
+
+    for step in range(int(max_steps)):
+        active = state == 1
+        n_active = int(active.sum())
+
+        if n_active == 0:
+            duration_steps = int(step)
+            censored = False
+            break
+
+        active_counts[step] = n_active
+
+        inp_e = A_e_T @ active[:n_e].astype(np.float32)
+        inp_i = A_i_T @ active[n_e:].astype(np.float32)
+
+        net = e_w * inp_e - i_w * inp_i
+        p_net = expit(net - theta)
+
+        # Remove baseline firing without active presynaptic input.
+        has_input = (inp_e > 0) | (inp_i > 0)
+        p_net[~has_input] = 0.0
+
+        new_active = (
+            (state == 0)
+            & (rng.random(n) < p_net)
         )
-        sim_id += 1
 
-design = pd.DataFrame(
-    jobs,
-    columns=["sim_id", "phi", "seed", "seed_idx"],
-)
+        new_state = np.zeros_like(state)
+        new_state[active] = 2
 
-design.to_csv(OUTDIR / "phi_scaling_design.csv", index=False)
+        refractory = state >= 2
+        new_state[refractory] = state[refractory] + 1
+        new_state[new_state > refractory_steps + 1] = 0
+        new_state[new_active] = 1
 
+        state = new_state
+
+        if not np.any(state == 1):
+            duration_steps = int(step + 1)
+            censored = False
+            break
+    else:
+        duration_steps = int(max_steps)
+        censored = True
+
+    active_counts = active_counts[:duration_steps].copy()
+    extinct = not censored
+    duration_s = float(duration_steps * dt)
+
+    # Same per-avalanche fn.timescale() calculation.
+    if active_counts.size >= 5 and np.var(active_counts) > 0:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="invalid value encountered in divide",
+                category=RuntimeWarning,
+            )
+
+            with np.errstate(invalid="ignore", divide="ignore"):
+                avalanche_tau_s = fn.timescale(
+                    active_counts[np.newaxis, :].astype(float),
+                    max_lag=min(
+                        3.0,
+                        max(2 * dt, duration_s / 2),
+                    ),
+                    dt=float(dt),
+                )
+    else:
+        avalanche_tau_s = np.nan
+
+    return {
+        "size": int(active_counts.sum()),
+        "duration_steps": int(duration_steps),
+        "duration_s": duration_s,
+        "lifetime_steps": int(duration_steps),
+        "lifetime_s": duration_s,
+        "peak_active": (
+            int(active_counts.max()) if active_counts.size else 0
+        ),
+        "extinct": bool(extinct),
+        "censored": bool(censored),
+        "persistent_at_cutoff": bool(censored),
+        "mean_active_during_avalanche": (
+            float(active_counts.mean())
+            if active_counts.size else np.nan
+        ),
+        "avalanche_tau_s": float(avalanche_tau_s),
+        "response_decay_tau_s": response_decay_timescale(
+            active_counts, dt
+        ),
+        **branching_metrics(active_counts, extinct),
+    }
 
 # ============================================================
-# Run sweep — same Linux/fork workflow as before
+# One network: avalanche trials + spontaneous ICG
 # ============================================================
 
-rows = []
-gen_rows = []
+def run_one_network(job):
+    network_id = int(job["network_id"])
+    phi_idx = int(job["phi_idx"])
+    seed_idx = int(job["seed_idx"])
+    phi = float(job["phi"])
 
-ctx = mp.get_context("fork")
-
-with ctx.Pool(processes=min(N_WORKERS, len(jobs))) as pool:
-    for exp_row, gen_df in tqdm(
-        pool.imap_unordered(run_one, jobs, chunksize=1),
-        total=len(jobs),
-        desc="Phi scaling sweep: 2.5–4.5",
-    ):
-        rows.append(exp_row)
-        gen_rows.append(gen_df)
-
-df_exp = (
-    pd.DataFrame(rows)
-    .sort_values(["phi", "seed_idx"])
-    .reset_index(drop=True)
-)
-
-df_icg = (
-    pd.concat(gen_rows, ignore_index=True)
-    .sort_values(["phi", "seed_idx", "gen"])
-    .reset_index(drop=True)
-)
-
-df_exp.to_csv(
-    OUTDIR / "phi_scaling_seed_exponents.csv",
-    index=False,
-)
-df_icg.to_csv(
-    OUTDIR / "phi_scaling_icg_rows.csv",
-    index=False,
-)
-
-print("Saved:", OUTDIR / "phi_scaling_seed_exponents.csv")
-print("Saved:", OUTDIR / "phi_scaling_icg_rows.csv")
-
-
-# ============================================================
-# Summary by phi
-# ============================================================
-
-phi_summary = (
-    df_exp
-    .groupby("phi", as_index=False)
-    .agg(
-        n=("seed", "count"),
-
-        MV_alpha_mean=("MV_alpha", "mean"),
-        MV_alpha_sem=("MV_alpha", sem),
-        MV_r2_mean=("MV_r2", "mean"),
-        MV_r2_sem=("MV_r2", sem),
-
-        TAU_beta_mean=("TAU_beta", "mean"),
-        TAU_beta_sem=("TAU_beta", sem),
-        TAU_r2_mean=("TAU_r2", "mean"),
-        TAU_r2_sem=("TAU_r2", sem),
-
-        score_mean=("score", "mean"),
-        score_sem=("score", sem),
-
-        mean_rate_hz=("mean_rate_hz", "mean"),
-        mean_rate_hz_sem=("mean_rate_hz", sem),
-
-        pop_rate_mean_hz=("pop_rate_mean_hz", "mean"),
-        pop_rate_std_hz=("pop_rate_std_hz", "mean"),
-
-        frac_silent_frames=("frac_silent_frames", "mean"),
-        frac_active_neurons=("frac_active_neurons", "mean"),
+    # Same seed construction as the attached script.
+    network_seed = int(
+        BASE_SEED
+        + int(round(phi * 1000)) * 100000
+        + seed_idx * 1000
     )
-    .sort_values("phi")
-    .reset_index(drop=True)
-)
 
-phi_summary.to_csv(
-    OUTDIR / "phi_scaling_summary.csv",
-    index=False,
-)
+    model_kwargs = make_model_kwargs(phi, network_seed)
 
-print("\nBest phi values by score:")
-print(
-    phi_summary
-    .sort_values("score_mean")
-    [
-        [
-            "phi",
-            "MV_alpha_mean",
-            "MV_alpha_sem",
-            "TAU_beta_mean",
-            "TAU_beta_sem",
-            "score_mean",
-            "MV_r2_mean",
-            "TAU_r2_mean",
-            "mean_rate_hz",
-            "n",
-        ]
+    # Limit numerical-library threads throughout this worker job.
+    with threadpool_limits(limits=1):
+        model = fn.automata_EI_hiermod(**model_kwargs)
+
+        A = np.array(model.A, dtype=np.uint8, copy=True)
+        np.fill_diagonal(A, 0)
+
+        n = int(model.n)
+        n_e = int(model.e)
+        dt = float(model.dt)
+
+        conn = local_connectivity_metrics(A, n_e)
+
+        A_e_T = sparse.csr_matrix(
+            A[:n_e, :].T.astype(np.float32)
+        )
+        A_i_T = sparse.csr_matrix(
+            A[n_e:, :].T.astype(np.float32)
+        )
+
+        rng = np.random.default_rng(network_seed + 123)
+
+        metadata = {
+            "network_id": network_id,
+            "phi_idx": phi_idx,
+            "seed": seed_idx,
+            "seed_idx": seed_idx,
+            "network_seed": network_seed,
+            "phi": phi,
+            "e_w": float(model.e_w),
+            "i_w": float(model.i_w),
+            "theta": float(model.theta),
+            "p_ext": 0.0,
+            "n_neurons": n,
+            "n_e": n_e,
+            "dt": dt,
+        }
+
+        # ----------------------------------------------------
+        # Avalanche trials
+        # ----------------------------------------------------
+
+        rows = []
+
+        for aval_i in range(N_AVALANCHES_PER_NETWORK):
+            seed_node = int(rng.integers(0, n_e))
+
+            result = run_seeded_avalanche_sparse(
+                A_e_T=A_e_T,
+                A_i_T=A_i_T,
+                n=n,
+                n_e=n_e,
+                e_w=float(model.e_w),
+                i_w=float(model.i_w),
+                theta=float(model.theta),
+                refractory_steps=int(model.refractory_steps),
+                dt=dt,
+                seed_node=seed_node,
+                rng=rng,
+                max_steps=MAX_STEPS,
+            )
+
+            rows.append({
+                **metadata,
+                "aval_i": aval_i,
+                "seed_node": seed_node,
+                "seed_cell_type": "E",
+                "max_steps": MAX_STEPS,
+                "cutoff_s": MAX_STEPS * dt,
+                "clamp_zero_presynaptic_input": True,
+                **result,
+            })
+
+        avalanche_df = pd.DataFrame(rows)
+
+        aval_path = TRIALDIR / (
+            f"phiidx_{phi_idx:02d}_seed_{seed_idx:02d}_avalanches.csv.gz"
+        )
+        avalanche_df.to_csv(
+            aval_path, index=False, compression="gzip"
+        )
+
+        avalanche_summary = {
+            **metadata,
+            **conn,
+            "n_avalanches": len(avalanche_df),
+            "avalanche_file": str(aval_path),
+            "frac_extinct": float(avalanche_df["extinct"].mean()),
+            "frac_persistent_at_cutoff": float(
+                avalanche_df["persistent_at_cutoff"].mean()
+            ),
+            "n_valid_avalanche_tau": int(
+                np.isfinite(avalanche_df["avalanche_tau_s"]).sum()
+            ),
+        }
+
+        # Includes extinct and censored trials.
+        for column, name in [
+            ("size", "size"),
+            ("lifetime_s", "lifetime_s"),
+            ("peak_active", "peak_active"),
+            ("avalanche_tau_s", "avalanche_tau_s"),
+            ("response_decay_tau_s", "response_decay_tau_s"),
+        ]:
+            avalanche_summary[f"mean_{name}"] = safe_mean(
+                avalanche_df[column]
+            )
+            avalanche_summary[f"median_{name}"] = safe_percentile(
+                avalanche_df[column], 50
+            )
+
+            for q in [90, 95, 99]:
+                avalanche_summary[f"p{q}_{name}"] = safe_percentile(
+                    avalanche_df[column], q
+                )
+
+        extinct_df = avalanche_df.loc[avalanche_df["extinct"]]
+
+        avalanche_summary["mean_avalanche_tau_s_extinct_only"] = (
+            safe_mean(extinct_df["avalanche_tau_s"])
+        )
+        avalanche_summary["n_valid_avalanche_tau_extinct_only"] = int(
+            np.isfinite(extinct_df["avalanche_tau_s"]).sum()
+        )
+
+        # ----------------------------------------------------
+        # Spontaneous activity using the module's own step()
+        # ----------------------------------------------------
+
+        spikes, pop_rate = fn.run_model(model, T=T_RUN)
+
+        burn = int(round(BURN_IN_S / dt))
+        spikes_use = spikes[:, burn:]
+        pop_rate_use = np.asarray(pop_rate[burn:], dtype=float)
+
+        active_counts = spikes_use.sum(axis=0).astype(float)
+        rho = active_counts / n
+
+        # ICG uses the full recording, as before.
+        spikes_smooth = fn.exp_smooth_spikes(
+            spikes, dt=dt, tau=SMOOTHE
+        )
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="invalid value encountered in divide",
+                category=RuntimeWarning,
+            )
+
+            with np.errstate(invalid="ignore", divide="ignore"):
+                _, gen_df = fn.compute_icg_metrics(
+                    spikes=spikes_smooth,
+                    dt=dt,
+                )
+
+        gen_df = standardise_gen_df(gen_df)
+
+        MV_alpha, MV_r2, MV_n = fit_power_slope(
+            gen_df, "mean_variance_norm"
+        )
+        TAU_beta, TAU_r2, TAU_n = fit_power_slope(
+            gen_df, "timescale_norm"
+        )
+        KURT_slope, KURT_r2, KURT_n = fit_power_slope(
+            gen_df, "kurtosis_corr"
+        )
+
+        # Original ICG score retained from the attached script.
+        score = (
+            abs(MV_alpha - TARGET_MV)
+            + 2.0 * abs(TAU_beta - TARGET_TAU)
+            if np.isfinite(MV_alpha) and np.isfinite(TAU_beta)
+            else np.nan
+        )
+
+        for key, value in metadata.items():
+            gen_df[key] = value
+
+        gen_df["smoothe"] = SMOOTHE
+
+        icg_path = ICGDIR / (
+            f"phiidx_{phi_idx:02d}_seed_{seed_idx:02d}_icg.csv.gz"
+        )
+        gen_df.to_csv(
+            icg_path, index=False, compression="gzip"
+        )
+
+        icg_summary = {
+            **metadata,
+            **conn,
+            "icg_file": str(icg_path),
+            "T": T_RUN,
+            "burn_in_s": BURN_IN_S,
+            "smoothe": SMOOTHE,
+            "mean_rate_hz": float(spikes_use.mean() / dt),
+            "mean_rate_hz_pop_rate": float(pop_rate_use.mean()),
+            "mean_rho": float(rho.mean()),
+            "var_rho": float(rho.var()),
+            "susceptibility_N_var_rho": float(n * rho.var()),
+            "silent_frac": float(np.mean(active_counts == 0)),
+            "autocorr_tau_rho_s": pop_autocorr_tau(rho, dt),
+            "autocorr_tau_pop_rate_s": pop_autocorr_tau(
+                pop_rate_use, dt
+            ),
+            "MV_alpha": MV_alpha,
+            "MV_r2": MV_r2,
+            "MV_n_points": MV_n,
+            "TAU_beta": TAU_beta,
+            "TAU_r2": TAU_r2,
+            "TAU_n_points": TAU_n,
+            "KURT_slope": KURT_slope,
+            "KURT_r2": KURT_r2,
+            "KURT_n_points": KURT_n,
+            "score": score,
+        }
+
+    # Per-network checkpoints.
+    pd.DataFrame([avalanche_summary]).to_csv(
+        TRIALDIR / (
+            f"phiidx_{phi_idx:02d}_seed_{seed_idx:02d}_summary.csv"
+        ),
+        index=False,
+    )
+    pd.DataFrame([icg_summary]).to_csv(
+        ICGDIR / (
+            f"phiidx_{phi_idx:02d}_seed_{seed_idx:02d}_summary.csv"
+        ),
+        index=False,
+    )
+
+    return avalanche_summary, icg_summary
+
+# ============================================================
+# Aggregate by phi
+# SEM across network seeds, not individual avalanche trials.
+# ============================================================
+
+def summarise_by_phi(frame, columns):
+    agg = {
+        "n": ("seed_idx", "count"),
+        "e_w": ("e_w", "first"),
+        "i_w": ("i_w", "first"),
+    }
+
+    for column in columns:
+        agg[f"{column}_mean"] = (column, safe_mean)
+        agg[f"{column}_sem"] = (column, sem)
+        agg[f"{column}_n_valid"] = (column, count_valid)
+
+    return (
+        frame.groupby(["phi_idx", "phi"], as_index=False)
+        .agg(**agg)
+        .sort_values("phi")
+        .reset_index(drop=True)
+    )
+
+# ============================================================
+# Main
+# ============================================================
+
+def main():
+    global OUTDIR, TRIALDIR, ICGDIR
+
+    PHI_VALUES = load_exact_phi_grid(LLR_SOURCE)
+
+    OUTDIR = BASE / (
+        "phi_ew11p7_iw22p4_N2000_"
+        f"llr_refined_exactgrid_{len(PHI_VALUES)}phis_"
+        "50seeds_10000avals_max1000_avalanche_tau_icg"
+    )
+
+    TRIALDIR = OUTDIR / "avalanche_trials_by_network"
+    ICGDIR = OUTDIR / "icg_rows_by_network"
+
+    TRIALDIR.mkdir(parents=True, exist_ok=True)
+    ICGDIR.mkdir(parents=True, exist_ok=True)
+
+    config = {
+        "N_WORKERS": N_WORKERS,
+        "N_SEEDS": N_SEEDS,
+        "N_AVALANCHES_PER_NETWORK": N_AVALANCHES_PER_NETWORK,
+        "MAX_STEPS": MAX_STEPS,
+        "BASE_SEED": BASE_SEED,
+        "PHI_VALUES": PHI_VALUES.tolist(),
+        "phi_grid_source": str(LLR_SOURCE.resolve()),
+        "start_dic": start_dic,
+        "seed_only_excitatory": True,
+        "clamp_zero_presynaptic_input": True,
+        "avalanche_timescale_function": "icg_functions.timescale",
+        "avalanche_max_lag": "min(3.0, max(2*dt, duration_s/2))",
+        "avalanche_min_frames": 5,
+        "avalanche_summary_includes": "extinct and censored trials",
+        "burn_in_s": BURN_IN_S,
+        "icg_uses_full_recording": True,
+        "TARGET_MV": TARGET_MV,
+        "TARGET_TAU": TARGET_TAU,
+        "icg_score_definition": (
+            "abs(MV_alpha-1.50) + 2*abs(TAU_beta-0.20)"
+        ),
+    }
+
+    (OUTDIR / "config.json").write_text(
+        json.dumps(config, indent=2)
+    )
+
+    print("OUTDIR:", OUTDIR)
+    print("Exact phi values:", PHI_VALUES)
+    print("Phi intervals:", np.diff(PHI_VALUES))
+    print("Workers:", N_WORKERS)
+    print("Total networks:", len(PHI_VALUES) * N_SEEDS)
+    print(
+        "Total avalanches:",
+        len(PHI_VALUES) * N_SEEDS * N_AVALANCHES_PER_NETWORK,
+    )
+
+    jobs = [
+        {
+            "network_id": phi_idx * N_SEEDS + seed_idx,
+            "phi_idx": phi_idx,
+            "seed_idx": seed_idx,
+            "phi": float(phi),
+        }
+        for phi_idx, phi in enumerate(PHI_VALUES)
+        for seed_idx in range(N_SEEDS)
     ]
-    .head(15)
-    .round(4)
-    .to_string(index=False)
-)
 
-print("\nDone.")
-print("Outputs saved to:", OUTDIR)
+    pd.DataFrame(jobs).to_csv(
+        OUTDIR / "design.csv", index=False
+    )
+
+    ctx = mp.get_context("fork")
+
+    avalanche_rows = []
+    icg_rows = []
+
+    with ctx.Pool(processes=N_WORKERS) as pool:
+        for av_row, icg_row in tqdm(
+            pool.imap_unordered(
+                run_one_network, jobs, chunksize=1
+            ),
+            total=len(jobs),
+            desc="Exact LLR grid: avalanche tau + ICG",
+            unit="network",
+        ):
+            avalanche_rows.append(av_row)
+            icg_rows.append(icg_row)
+
+            if len(avalanche_rows) % 20 == 0:
+                pd.DataFrame(avalanche_rows).to_csv(
+                    OUTDIR / "avalanche_network_summary_partial.csv",
+                    index=False,
+                )
+                pd.DataFrame(icg_rows).to_csv(
+                    OUTDIR / "icg_seed_summary_partial.csv",
+                    index=False,
+                )
+
+    avalanche_network_summary = (
+        pd.DataFrame(avalanche_rows)
+        .sort_values(["phi", "seed_idx"])
+        .reset_index(drop=True)
+    )
+
+    icg_seed_summary = (
+        pd.DataFrame(icg_rows)
+        .sort_values(["phi", "seed_idx"])
+        .reset_index(drop=True)
+    )
+
+    avalanche_network_summary.to_csv(
+        OUTDIR / "avalanche_network_summary.csv",
+        index=False,
+    )
+    icg_seed_summary.to_csv(
+        OUTDIR / "icg_seed_summary.csv",
+        index=False,
+    )
+
+    av_columns = [
+        "frac_extinct",
+        "frac_persistent_at_cutoff",
+        "n_valid_avalanche_tau",
+        "mean_size",
+        "p95_size",
+        "p99_size",
+        "mean_lifetime_s",
+        "p95_lifetime_s",
+        "p99_lifetime_s",
+        "mean_peak_active",
+        "mean_avalanche_tau_s",
+        "median_avalanche_tau_s",
+        "p95_avalanche_tau_s",
+        "p99_avalanche_tau_s",
+        "mean_avalanche_tau_s_extinct_only",
+        "mean_response_decay_tau_s",
+        "p95_response_decay_tau_s",
+    ]
+
+    avalanche_phi_summary = summarise_by_phi(
+        avalanche_network_summary, av_columns
+    )
+
+    avalanche_phi_summary.to_csv(
+        OUTDIR / "avalanche_combo_phi_summary.csv",
+        index=False,
+    )
+
+    icg_columns = [
+        "mean_rate_hz",
+        "mean_rho",
+        "var_rho",
+        "susceptibility_N_var_rho",
+        "autocorr_tau_rho_s",
+        "autocorr_tau_pop_rate_s",
+        "MV_alpha",
+        "MV_r2",
+        "TAU_beta",
+        "TAU_r2",
+        "KURT_slope",
+        "score",
+    ]
+
+    icg_phi_summary = summarise_by_phi(
+        icg_seed_summary, icg_columns
+    )
+
+    icg_phi_summary.to_csv(
+        OUTDIR / "icg_combo_phi_summary.csv",
+        index=False,
+    )
+
+    print("\nAvalanche autocorrelation summary:")
+    print(
+        avalanche_phi_summary[[
+            "phi",
+            "mean_avalanche_tau_s_mean",
+            "mean_avalanche_tau_s_sem",
+            "mean_avalanche_tau_s_n_valid",
+            "frac_persistent_at_cutoff_mean",
+        ]]
+        .round(6)
+        .to_string(index=False)
+    )
+
+    print("\nDone.")
+    print("Outputs:", OUTDIR)
+
+    return (
+        avalanche_network_summary,
+        icg_seed_summary,
+        avalanche_phi_summary,
+        icg_phi_summary,
+    )
+
+
+if __name__ == "__main__":
+    (
+        avalanche_network_summary,
+        icg_seed_summary,
+        avalanche_phi_summary,
+        icg_phi_summary,
+    ) = main()

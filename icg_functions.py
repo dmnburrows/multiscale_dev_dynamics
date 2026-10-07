@@ -300,12 +300,12 @@ def mapp(curr, n_neurons):
 def label_neuron_bylevel(n_neurons, rng):
     """
     Returns:
-      labs: labels per level, same as before
+      labs: labels per level
       groupings: actual nested neuron groupings per level
     """
     # level 0: pairs
     perm0 = rng.permutation(n_neurons)
-    n_used = n_neurons - (n_neurons % 2)
+    n_used = n_neurons - (n_neurons % 2) #remove odd
     curr_groups = perm0[:n_used].reshape(-1, 2)
 
     groupings = [curr_groups.copy()]
@@ -313,12 +313,12 @@ def label_neuron_bylevel(n_neurons, rng):
     # higher levels: pair previous groups, preserving nested structure
     while len(curr_groups) > 1:
         perm = rng.permutation(len(curr_groups))
+        #discard odd
         if len(perm) % 2:
             perm = perm[:-1]
 
         paired = perm.reshape(-1, 2)
         curr_groups = curr_groups[paired].reshape(len(paired), -1)
-
         groupings.append(curr_groups.copy())
 
     # labels for compatibility
@@ -368,7 +368,6 @@ def wire_A(n_neurons, groupings, t, rng):
                 A[comb_v[:, 0], comb_v[:, 1]],
                 fwd,
             )
-
             A[comb_v[:, 1], comb_v[:, 0]] = np.maximum(
                 A[comb_v[:, 1], comb_v[:, 0]],
                 rev,
