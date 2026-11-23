@@ -1,0 +1,315 @@
+{
+  "dense_checks": [
+    {
+      "L": 16,
+      "d": 1,
+      "r": 6,
+      "m": 0.4,
+      "max_relative_error": 1.5543122344752192e-15
+    },
+    {
+      "L": 16,
+      "d": 1,
+      "r": 6,
+      "m": 0.95,
+      "max_relative_error": 4.6629367034256575e-15
+    },
+    {
+      "L": 16,
+      "d": 1,
+      "r": 6,
+      "m": 0.999,
+      "max_relative_error": 1.6897594434794883e-13
+    },
+    {
+      "L": 8,
+      "d": 2,
+      "r": 2,
+      "m": 0.4,
+      "max_relative_error": 1.4432899320127035e-15
+    },
+    {
+      "L": 8,
+      "d": 2,
+      "r": 2,
+      "m": 0.95,
+      "max_relative_error": 1.9872992140790302e-14
+    },
+    {
+      "L": 8,
+      "d": 2,
+      "r": 2,
+      "m": 0.999,
+      "max_relative_error": 8.026912468039882e-13
+    },
+    {
+      "L": 4,
+      "d": 3,
+      "r": 1,
+      "m": 0.4,
+      "max_relative_error": 2.4424906541753444e-15
+    },
+    {
+      "L": 4,
+      "d": 3,
+      "r": 1,
+      "m": 0.95,
+      "max_relative_error": 1.432187701766452e-13
+    },
+    {
+      "L": 4,
+      "d": 3,
+      "r": 1,
+      "m": 0.999,
+      "max_relative_error": 1.1222840434754744e-09
+    }
+  ],
+  "configurations": [
+    {
+      "r": 2,
+      "d": 1,
+      "N": 16,
+      "degree": 4,
+      "compressed_modes": 9
+    },
+    {
+      "r": 2,
+      "d": 2,
+      "N": 256,
+      "degree": 8,
+      "compressed_modes": 45
+    },
+    {
+      "r": 2,
+      "d": 3,
+      "N": 4096,
+      "degree": 12,
+      "compressed_modes": 165
+    },
+    {
+      "r": 2,
+      "d": 4,
+      "N": 65536,
+      "degree": 16,
+      "compressed_modes": 495
+    },
+    {
+      "r": 2,
+      "d": 5,
+      "N": 1048576,
+      "degree": 20,
+      "compressed_modes": 1287
+    },
+    {
+      "r": 2,
+      "d": 6,
+      "N": 16777216,
+      "degree": 24,
+      "compressed_modes": 3003
+    },
+    {
+      "r": 2,
+      "d": 7,
+      "N": 268435456,
+      "degree": 28,
+      "compressed_modes": 6435
+    },
+    {
+      "r": 3,
+      "d": 1,
+      "N": 16,
+      "degree": 6,
+      "compressed_modes": 9
+    },
+    {
+      "r": 3,
+      "d": 2,
+      "N": 256,
+      "degree": 12,
+      "compressed_modes": 45
+    },
+    {
+      "r": 3,
+      "d": 3,
+      "N": 4096,
+      "degree": 18,
+      "compressed_modes": 165
+    },
+    {
+      "r": 3,
+      "d": 4,
+      "N": 65536,
+      "degree": 24,
+      "compressed_modes": 495
+    },
+    {
+      "r": 3,
+      "d": 5,
+      "N": 1048576,
+      "degree": 30,
+      "compressed_modes": 1287
+    },
+    {
+      "r": 3,
+      "d": 6,
+      "N": 16777216,
+      "degree": 36,
+      "compressed_modes": 3003
+    },
+    {
+      "r": 3,
+      "d": 7,
+      "N": 268435456,
+      "degree": 42,
+      "compressed_modes": 6435
+    },
+    {
+      "r": 4,
+      "d": 1,
+      "N": 16,
+      "degree": 8,
+      "compressed_modes": 9
+    },
+    {
+      "r": 4,
+      "d": 2,
+      "N": 256,
+      "degree": 16,
+      "compressed_modes": 45
+    },
+    {
+      "r": 4,
+      "d": 3,
+      "N": 4096,
+      "degree": 24,
+      "compressed_modes": 165
+    },
+    {
+      "r": 4,
+      "d": 4,
+      "N": 65536,
+      "degree": 32,
+      "compressed_modes": 495
+    },
+    {
+      "r": 4,
+      "d": 5,
+      "N": 1048576,
+      "degree": 40,
+      "compressed_modes": 1287
+    },
+    {
+      "r": 4,
+      "d": 6,
+      "N": 16777216,
+      "degree": 48,
+      "compressed_modes": 3003
+    },
+    {
+      "r": 4,
+      "d": 7,
+      "N": 268435456,
+      "degree": 56,
+      "compressed_modes": 6435
+    },
+    {
+      "r": 5,
+      "d": 1,
+      "N": 16,
+      "degree": 10,
+      "compressed_modes": 9
+    },
+    {
+      "r": 5,
+      "d": 2,
+      "N": 256,
+      "degree": 20,
+      "compressed_modes": 45
+    },
+    {
+      "r": 5,
+      "d": 3,
+      "N": 4096,
+      "degree": 30,
+      "compressed_modes": 165
+    },
+    {
+      "r": 5,
+      "d": 4,
+      "N": 65536,
+      "degree": 40,
+      "compressed_modes": 495
+    },
+    {
+      "r": 5,
+      "d": 5,
+      "N": 1048576,
+      "degree": 50,
+      "compressed_modes": 1287
+    },
+    {
+      "r": 5,
+      "d": 6,
+      "N": 16777216,
+      "degree": 60,
+      "compressed_modes": 3003
+    },
+    {
+      "r": 5,
+      "d": 7,
+      "N": 268435456,
+      "degree": 70,
+      "compressed_modes": 6435
+    },
+    {
+      "r": 6,
+      "d": 1,
+      "N": 16,
+      "degree": 12,
+      "compressed_modes": 9
+    },
+    {
+      "r": 6,
+      "d": 2,
+      "N": 256,
+      "degree": 24,
+      "compressed_modes": 45
+    },
+    {
+      "r": 6,
+      "d": 3,
+      "N": 4096,
+      "degree": 36,
+      "compressed_modes": 165
+    },
+    {
+      "r": 6,
+      "d": 4,
+      "N": 65536,
+      "degree": 48,
+      "compressed_modes": 495
+    },
+    {
+      "r": 6,
+      "d": 5,
+      "N": 1048576,
+      "degree": 60,
+      "compressed_modes": 1287
+    },
+    {
+      "r": 6,
+      "d": 6,
+      "N": 16777216,
+      "degree": 72,
+      "compressed_modes": 3003
+    },
+    {
+      "r": 6,
+      "d": 7,
+      "N": 268435456,
+      "degree": 84,
+      "compressed_modes": 6435
+    }
+  ],
+  "note": "Exact finite moments; peaks selected on 601-point log-delta grid"
+}

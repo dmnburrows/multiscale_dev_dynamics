@@ -1,0 +1,50 @@
+Greedy 256 0 {'family': 'ring'}
+Greedy 256 6 {'family': 'ring+hierarchy', 'phi': 2.5, 'g': 0.1}
+Greedy 256 31 {'family': 'hierarchy', 'phi': 2.83}
+Greedy 256 36 {'family': 'ring+hierarchy', 'phi': 2.83, 'g': 0.1}
+Greedy 256 91 {'family': 'hierarchy', 'phi': 4.0}
+Greedy 256 101 {'family': 'module rings+hierarchy', 'phi': 4.0, 'g': 0.01, 'block': 16}
+Greedy 256 121 {'family': 'hierarchy', 'phi': 5.0}
+Greedy 256 139 {'family': 'module rings+hierarchy', 'phi': 5.0, 'g': 0.03, 'block': 32}
+Greedy 256 151 {'family': 'hierarchy', 'phi': 8.0}
+Greedy 256 152 {'family': 'ring+hierarchy', 'phi': 8.0, 'g': 0.001}
+Greedy 256 169 {'family': 'module rings+hierarchy', 'phi': 8.0, 'g': 0.03, 'block': 32}
+Greedy 256 181 {'family': 'ring+uniform', 'g': 0.001}
+Greedy 256 183 {'family': 'ring+random cycles', 'g': 0.001, 'seed': 1}
+Greedy 256 189 {'family': 'ring+uniform', 'g': 0.01}
+Greedy 256 190 {'family': 'ring+random cycles', 'g': 0.01, 'seed': 0}
+Greedy 256 192 {'family': 'ring+random cycles', 'g': 0.01, 'seed': 2}
+Greedy 256 193 {'family': 'ring+uniform', 'g': 0.03}
+Greedy 256 217 {'family': 'powerlaw ring', 'power': 2.2}
+Greedy 256 218 {'family': 'powerlaw ring', 'power': 3.0}
+Greedy 256 279 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.01, 'seed': 0, 'balance': False}
+Greedy 256 280 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.01, 'seed': 0, 'balance': True}
+Greedy 256 301 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.6, 'seed': 2, 'balance': False}
+Greedy 256 302 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.6, 'seed': 2, 'balance': True}
+Greedy 256 307 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.9, 'seed': 2, 'balance': False}
+Greedy 256 308 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.9, 'seed': 2, 'balance': True}
+Greedy 512 0 {'family': 'ring'}
+Greedy 512 6 {'family': 'ring+hierarchy', 'phi': 2.5, 'g': 0.1}
+Greedy 512 31 {'family': 'hierarchy', 'phi': 2.83}
+Greedy 512 36 {'family': 'ring+hierarchy', 'phi': 2.83, 'g': 0.1}
+Greedy 512 91 {'family': 'hierarchy', 'phi': 4.0}
+Greedy 512 101 {'family': 'module rings+hierarchy', 'phi': 4.0, 'g': 0.01, 'block': 16}
+Greedy 512 121 {'family': 'hierarchy', 'phi': 5.0}
+Greedy 512 139 {'family': 'module rings+hierarchy', 'phi': 5.0, 'g': 0.03, 'block': 32}
+Greedy 512 151 {'family': 'hierarchy', 'phi': 8.0}
+Greedy 512 152 {'family': 'ring+hierarchy', 'phi': 8.0, 'g': 0.001}
+Greedy 512 169 {'family': 'module rings+hierarchy', 'phi': 8.0, 'g': 0.03, 'block': 32}
+Greedy 512 181 {'family': 'ring+uniform', 'g': 0.001}
+Greedy 512 183 {'family': 'ring+random cycles', 'g': 0.001, 'seed': 1}
+Greedy 512 189 {'family': 'ring+uniform', 'g': 0.01}
+Greedy 512 190 {'family': 'ring+random cycles', 'g': 0.01, 'seed': 0}
+Greedy 512 192 {'family': 'ring+random cycles', 'g': 0.01, 'seed': 2}
+Greedy 512 193 {'family': 'ring+uniform', 'g': 0.03}
+Greedy 512 217 {'family': 'powerlaw ring', 'power': 2.2}
+Greedy 512 218 {'family': 'powerlaw ring', 'power': 3.0}
+Greedy 512 279 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.01, 'seed': 0, 'balance': False}
+Greedy 512 280 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.01, 'seed': 0, 'balance': True}
+Greedy 512 301 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.6, 'seed': 2, 'balance': False}
+Greedy 512 302 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.6, 'seed': 2, 'balance': True}
+Greedy 512 307 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.9, 'seed': 2, 'balance': False}
+Greedy 512 308 {'family': 'ring+stochastic hierarchy', 'phi': 3.2, 'g': 0.9, 'seed': 2, 'balance': True}

@@ -1,0 +1,30 @@
+Research backup, 2026-11-22
+Chat title: Check access to browser chats
+Thread ID: 01a1dad5-6de5-7c91-b4cf-c3dfa21641c6
+Original project: /Users/k2585057/Documents/Codex/2026-11-14/do-x20
+
+Contents: outputs/ (saved scripts, plots, tables and derivations); work/
+(scratch scripts and logs); conversation/session.jsonl (raw local session
+snapshot); conversation/messages.txt (readable recorded user/assistant messages).
+The snapshot ends during the backup request. Raw history can contain tool
+outputs, metadata and summaries. Earlier source chats and external attachments
+are not guaranteed to be included; messages.txt is an extraction, not a claim
+that all earlier messages are available verbatim.
+
+To continue: extract this archive, open the extracted project folder in Codex,
+and ask: Read conversation/messages.txt and
+outputs/local-hierarchical-findings.txt, then inspect the saved code and
+results before continuing our ring/HM alpha-beta investigation.
+The raw JSONL is a backup, not a guaranteed drag-and-drop app import format.
+
+Current assessment: ring/HM hybrids provide an exact local-versus-collective
+mode decomposition. A selected candidate has stable results at N=256--1024
+with module size and observation window held fixed, but does not establish
+universal exponents or superiority over independently optimized components.
+Beta is sensitive to finite autocorrelation integration. Original canonical
+linear_theory.py was unavailable; these are reconstructed explicit models.
+
+Python used for recent tests:
+/Users/k2585057/anaconda3/envs/opt/bin/python
+Libraries include numpy, scipy, pandas, matplotlib. Scripts may require their
+outputs/ sibling modules and data; keep that directory intact.

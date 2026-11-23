@@ -1,0 +1,16 @@
+{
+  "dense_relative_errors": {
+    "Ring_None_0.3": 1.5543122344752192e-15,
+    "Ring_None_0.95": 9.103828801926284e-15,
+    "Ring_None_0.999": 2.5522917113107724e-12,
+    "HM_3.0_0.3": 2.886579864025407e-15,
+    "HM_3.0_0.95": 2.842170943040401e-14,
+    "HM_3.0_0.999": 1.1274314815068465e-12,
+    "HM_5.0_0.3": 4.440892098500626e-16,
+    "HM_5.0_0.95": 1.609823385706477e-14,
+    "HM_5.0_0.999": 2.5219826227385056e-12
+  },
+  "maximum_search_resolution_difference": 4.0656556565821234e-08,
+  "convention": "one-sided infinite-lag integrated autocorrelation; interval or OLS slopes",
+  "networks": "degree-4 ring; deterministic weighted dyadic hierarchy"
+}

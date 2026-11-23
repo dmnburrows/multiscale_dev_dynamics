@@ -1,0 +1,149 @@
+### structural_icg
+### started 2026-11-22T19:18:25+00:00
+### git 947c87d
+
+==============================================================================================================
+0  SELF-CHECK
+==============================================================================================================
+  self-check: corr cascade vs lt.coarse_grain, max abs diff 0.00e+00
+  swept ring k=4, seed 1
+  swept ring k=4, seed 2
+  swept ring k=4, seed 3
+  swept ring k=6, seed 1
+  swept ring k=6, seed 2
+  swept ring k=6, seed 3
+  swept ring k=8, seed 1
+  swept ring k=8, seed 2
+  swept ring k=8, seed 3
+  swept sw p=0.004, seed 1
+  swept sw p=0.004, seed 2
+  swept sw p=0.004, seed 3
+  swept hm phi=3.4, seed 1
+  swept hm phi=3.4, seed 2
+  swept hm phi=3.4, seed 3
+  swept hm phi=3.0, seed 1
+  swept hm phi=3.0, seed 2
+  swept hm phi=3.0, seed 3
+  swept hm phi=2.6, seed 1
+  swept hm phi=2.6, seed 2
+  swept hm phi=2.6, seed 3
+
+==============================================================================================================
+1  DOES THE CASCADE EVEN FIND THE SAME CLUSTERS?
+   agree  = fraction of level-1 pairs shared with the correlation rule
+   purity = cluster's share in one dyadic module of size 64 (HM's own tree)
+   compact= 64 / shortest ring arc containing the cluster (1.0 = contiguous)
+==============================================================================================================
+  network       rule      agree    purity   compact
+  ring k=4      corr      1.000    0.828    1.000
+  ring k=4      shared    0.000    1.000    1.000
+  ring k=4      nbr       0.000    1.000    1.000
+  ring k=4      adj       0.000    1.000    1.000
+  ring k=4      dyadic    0.000    1.000    1.000
+  ring k=4      random    0.003    0.183    0.134
+  ring k=6      corr      1.000    0.984    1.000
+  ring k=6      shared    0.000    1.000    1.000
+  ring k=6      nbr       0.000    1.000    1.000
+  ring k=6      adj       0.000    1.000    1.000
+  ring k=6      dyadic    0.000    1.000    1.000
+  ring k=6      random    0.003    0.183    0.134
+  ring k=8      corr      1.000    0.938    1.000
+  ring k=8      shared    1.000    1.000    1.000
+  ring k=8      nbr       1.000    1.000    1.000
+  ring k=8      adj       1.000    1.000    1.000
+  ring k=8      dyadic    1.000    1.000    1.000
+  ring k=8      random    0.000    0.183    0.134
+  sw p=0.004    corr      1.000    0.615    0.737
+  sw p=0.004    shared    0.260    0.875    1.000
+  sw p=0.004    nbr       0.133    0.936    0.984
+  sw p=0.004    adj       0.259    1.000    1.000
+  sw p=0.004    dyadic    0.260    1.000    1.000
+  sw p=0.004    random    0.003    0.183    0.134
+  hm phi=3.4    corr      1.000    0.492    0.227
+  hm phi=3.4    shared    0.085    0.568    0.333
+  hm phi=3.4    nbr       0.247    0.525    0.321
+  hm phi=3.4    adj       0.046    0.579    0.442
+  hm phi=3.4    dyadic    0.046    1.000    1.000
+  hm phi=3.4    random    0.004    0.183    0.134
+  hm phi=3.0    corr      1.000    0.525    0.224
+  hm phi=3.0    shared    0.068    0.590    0.279
+  hm phi=3.0    nbr       0.178    0.496    0.232
+  hm phi=3.0    adj       0.034    0.634    0.463
+  hm phi=3.0    dyadic    0.034    1.000    1.000
+  hm phi=3.0    random    0.004    0.183    0.134
+  hm phi=2.6    corr      1.000    0.516    0.238
+  hm phi=2.6    shared    0.044    0.613    0.222
+  hm phi=2.6    nbr       0.107    0.544    0.233
+  hm phi=2.6    adj       0.016    0.667    0.420
+  hm phi=2.6    dyadic    0.016    1.000    1.000
+  hm phi=2.6    random    0.000    0.183    0.134
+
+==============================================================================================================
+2  BEST APPROACH TO THE MUNN PAIR (1.5, 0.2), m optimised per rule
+   ceiling = max beta over the whole m sweep;  residual = range-weighted
+   distance at the best m;  d_corr = change in residual vs the baseline
+==============================================================================================================
+  network       rule      1-m best   alpha    beta     residual   d_corr    ceiling   a_r2    b_r2
+  ring k=4      corr      2.18e-02   1.526    0.211    0.0339     +0.0000   0.2213    0.995   0.989
+  ring k=4      shared    2.18e-02   1.526    0.211    0.0339     +0.0000   0.2213    0.995   0.989
+  ring k=4      nbr       2.18e-02   1.526    0.211    0.0339     +0.0000   0.2213    0.995   0.989
+  ring k=4      adj       2.18e-02   1.526    0.211    0.0339     +0.0000   0.2213    0.995   0.989
+  ring k=4      dyadic    2.18e-02   1.526    0.211    0.0339     +0.0000   0.2213    0.995   0.989
+  ring k=4      random    1.89e-03   1.510    0.197    0.0127     -0.0212   0.2156    0.995   0.987
+
+  ring k=6      corr      3.09e-02   1.525    0.237    0.0782     +0.0000   0.2534    0.997   0.983
+  ring k=6      shared    3.09e-02   1.525    0.237    0.0782     +0.0000   0.2534    0.997   0.983
+  ring k=6      nbr       3.09e-02   1.525    0.237    0.0782     +0.0000   0.2534    0.997   0.983
+  ring k=6      adj       3.09e-02   1.525    0.237    0.0782     +0.0000   0.2534    0.997   0.983
+  ring k=6      dyadic    3.09e-02   1.525    0.237    0.0782     +0.0000   0.2534    0.997   0.983
+  ring k=6      random    2.68e-03   1.522    0.215    0.0380     -0.0403   0.2498    0.995   0.984
+
+  ring k=8      corr      3.09e-02   1.555    0.254    0.1212     +0.0000   0.2817    0.998   0.984
+  ring k=8      shared    3.09e-02   1.555    0.254    0.1212     -0.0000   0.2817    0.998   0.984
+  ring k=8      nbr       3.09e-02   1.555    0.254    0.1212     -0.0000   0.2817    0.998   0.984
+  ring k=8      adj       3.09e-02   1.555    0.254    0.1212     -0.0000   0.2817    0.998   0.984
+  ring k=8      dyadic    3.09e-02   1.555    0.254    0.1212     -0.0000   0.2817    0.998   0.984
+  ring k=8      random    3.80e-03   1.511    0.239    0.0798     -0.0414   0.2823    0.995   0.984
+
+  sw p=0.004    corr      2.18e-02   1.480    0.219    0.0461     +0.0000   0.2223    0.995   0.982
+  sw p=0.004    shared    2.18e-02   1.485    0.219    0.0445     -0.0016   0.2234    0.996   0.982
+  sw p=0.004    nbr       2.18e-02   1.487    0.219    0.0418     -0.0043   0.2268    0.996   0.979
+  sw p=0.004    adj       2.18e-02   1.484    0.218    0.0424     -0.0037   0.2227    0.995   0.981
+  sw p=0.004    dyadic    2.18e-02   1.484    0.218    0.0425     -0.0036   0.2228    0.995   0.981
+  sw p=0.004    random    9.38e-04   1.544    0.219    0.0885     +0.0424   0.2763    0.995   0.979
+
+  hm phi=3.4    corr      1.33e-03   1.487    0.184    0.0715     +0.0000   0.3958    0.996   0.903
+  hm phi=3.4    shared    1.89e-03   1.371    0.158    0.1539     +0.0825   0.2963    0.995   0.826
+  hm phi=3.4    nbr       1.89e-03   1.363    0.168    0.1533     +0.0818   0.3233    0.997   0.844
+  hm phi=3.4    adj       1.89e-03   1.412    0.167    0.1106     +0.0391   0.3208    0.997   0.906
+  hm phi=3.4    dyadic    1.89e-03   1.429    0.165    0.1006     +0.0291   0.3223    0.995   0.861
+  hm phi=3.4    random    9.38e-04   1.198    0.124    0.3386     +0.2671   0.2343    0.997   0.938
+
+  hm phi=3.0    corr      1.33e-03   1.617    0.215    0.1259     +0.0000   0.4748    0.999   0.925
+  hm phi=3.0    shared    1.89e-03   1.480    0.179    0.0973     -0.0286   0.3556    0.998   0.874
+  hm phi=3.0    nbr       1.89e-03   1.441    0.192    0.0617     -0.0642   0.3686    0.999   0.918
+  hm phi=3.0    adj       1.89e-03   1.507    0.184    0.0631     -0.0628   0.3680    0.998   0.908
+  hm phi=3.0    dyadic    2.68e-03   1.486    0.221    0.0679     -0.0581   0.3660    0.998   0.904
+  hm phi=3.0    random    9.38e-04   1.364    0.172    0.1477     +0.0218   0.3760    0.995   0.990
+
+  hm phi=2.6    corr      1.89e-03   1.713    0.240    0.2300     +0.0000   0.4974    0.999   0.931
+  hm phi=2.6    shared    2.68e-03   1.596    0.253    0.1443     -0.0858   0.4349    0.999   0.953
+  hm phi=2.6    nbr       1.89e-03   1.645    0.226    0.1550     -0.0750   0.4701    0.999   0.961
+  hm phi=2.6    adj       2.68e-03   1.630    0.255    0.1699     -0.0602   0.4432    0.999   0.959
+  hm phi=2.6    dyadic    2.68e-03   1.638    0.247    0.1671     -0.0630   0.4306    0.999   0.953
+  hm phi=2.6    random    1.33e-03   1.619    0.220    0.1278     -0.1023   0.5270    0.996   0.959
+
+==============================================================================================================
+3  SUMMARY BY RULE, averaged over all 7 networks
+==============================================================================================================
+  rule      mean residual    mean d_corr    mean ceiling   mean beta_r2
+  corr      0.1010           +0.0000        0.3352         0.957
+  shared    0.0962           -0.0048        0.2952         0.942
+  nbr       0.0922           -0.0088        0.3065         0.951
+  adj       0.0885           -0.0125        0.3016         0.959
+  dyadic    0.0873           -0.0136        0.2997         0.951
+  random    0.1190           +0.0180        0.3088         0.974
+
+wrote /Users/k2585057/Library/CloudStorage/Dropbox/PhD/Analysis/my_scripts/GitHub/multiscale_dev_dynamics/sweep_data/structural_icg_curves.csv
+wrote /Users/k2585057/Library/CloudStorage/Dropbox/PhD/Analysis/my_scripts/GitHub/multiscale_dev_dynamics/sweep_data/structural_icg_best.csv
+### finished 2026-11-22T19:19:09+00:00

@@ -1,0 +1,15 @@
+{
+  "max_stationary_covariance_relative_residual": 1.950017697706209e-14,
+  "target": [
+    1.5,
+    0.2
+  ],
+  "distance": "equal-weight Euclidean distance",
+  "illustrative_joint_tolerance": [
+    0.05,
+    0.05
+  ],
+  "greedy_tie_rounding_decimals": 12,
+  "seed_count_random_families": 3,
+  "note": "Refined sampled extrema; original empirical finite-lag estimator is not reproduced."
+}

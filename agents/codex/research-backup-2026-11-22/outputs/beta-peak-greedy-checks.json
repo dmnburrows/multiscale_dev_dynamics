@@ -1,0 +1,11 @@
+{
+  "configurations": 20,
+  "coarse_grid_points": 181,
+  "fine_grid_points": 361,
+  "correlation_tie_rounding_decimals": 12,
+  "beta_peak_max_absolute_change": 5.649324284290325e-06,
+  "alpha_at_peak_max_absolute_change": 0.0036051394009990467,
+  "maximum_peak_log_delta_change": 0.027982804949579193,
+  "boundary_maxima": 0,
+  "note": "Grid-refined greedy peak estimates with deterministic tie handling."
+}

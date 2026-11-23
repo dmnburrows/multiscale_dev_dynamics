@@ -1,0 +1,1831 @@
+[
+  {
+    "family": "ring"
+  },
+  {
+    "family": "hierarchy",
+    "phi": 2.5
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.5,
+    "g": 0.001
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.5,
+    "g": 0.003
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.5,
+    "g": 0.01
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.5,
+    "g": 0.03
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.5,
+    "g": 0.1
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.5,
+    "g": 0.3
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.5,
+    "g": 0.6
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.5,
+    "g": 0.9
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.003,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.01,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.03,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.1,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.3,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.6,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.9,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.003,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.01,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.03,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.1,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.3,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.6,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.9,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.003,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.01,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.03,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.1,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.3,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.6,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.5,
+    "g": 0.9,
+    "block": 64
+  },
+  {
+    "family": "hierarchy",
+    "phi": 2.83
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.83,
+    "g": 0.001
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.83,
+    "g": 0.003
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.83,
+    "g": 0.01
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.83,
+    "g": 0.03
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.83,
+    "g": 0.1
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.83,
+    "g": 0.3
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.83,
+    "g": 0.6
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 2.83,
+    "g": 0.9
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.003,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.01,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.03,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.1,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.3,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.6,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.9,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.003,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.01,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.03,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.1,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.3,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.6,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.9,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.003,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.01,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.03,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.1,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.3,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.6,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 2.83,
+    "g": 0.9,
+    "block": 64
+  },
+  {
+    "family": "hierarchy",
+    "phi": 3.0
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 3.0,
+    "g": 0.001
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 3.0,
+    "g": 0.003
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 3.0,
+    "g": 0.01
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 3.0,
+    "g": 0.03
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 3.0,
+    "g": 0.1
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 3.0,
+    "g": 0.3
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 3.0,
+    "g": 0.6
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 3.0,
+    "g": 0.9
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.003,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.01,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.03,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.1,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.3,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.6,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.9,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.003,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.01,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.03,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.1,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.3,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.6,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.9,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.003,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.01,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.03,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.1,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.3,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.6,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 3.0,
+    "g": 0.9,
+    "block": 64
+  },
+  {
+    "family": "hierarchy",
+    "phi": 4.0
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 4.0,
+    "g": 0.001
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 4.0,
+    "g": 0.003
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 4.0,
+    "g": 0.01
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 4.0,
+    "g": 0.03
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 4.0,
+    "g": 0.1
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 4.0,
+    "g": 0.3
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 4.0,
+    "g": 0.6
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 4.0,
+    "g": 0.9
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.003,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.01,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.03,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.1,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.3,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.6,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.9,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.003,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.01,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.03,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.1,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.3,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.6,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.9,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.003,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.01,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.03,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.1,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.3,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.6,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 4.0,
+    "g": 0.9,
+    "block": 64
+  },
+  {
+    "family": "hierarchy",
+    "phi": 5.0
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 5.0,
+    "g": 0.001
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 5.0,
+    "g": 0.003
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 5.0,
+    "g": 0.01
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 5.0,
+    "g": 0.03
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 5.0,
+    "g": 0.1
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 5.0,
+    "g": 0.3
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 5.0,
+    "g": 0.6
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 5.0,
+    "g": 0.9
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.003,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.01,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.03,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.1,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.3,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.6,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.9,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.003,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.01,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.03,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.1,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.3,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.6,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.9,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.003,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.01,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.03,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.1,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.3,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.6,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 5.0,
+    "g": 0.9,
+    "block": 64
+  },
+  {
+    "family": "hierarchy",
+    "phi": 8.0
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 8.0,
+    "g": 0.001
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 8.0,
+    "g": 0.003
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 8.0,
+    "g": 0.01
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 8.0,
+    "g": 0.03
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 8.0,
+    "g": 0.1
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 8.0,
+    "g": 0.3
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 8.0,
+    "g": 0.6
+  },
+  {
+    "family": "ring+hierarchy",
+    "phi": 8.0,
+    "g": 0.9
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.003,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.01,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.03,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.1,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.3,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.6,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.9,
+    "block": 16
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.003,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.01,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.03,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.1,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.3,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.6,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.9,
+    "block": 32
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.003,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.01,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.03,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.1,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.3,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.6,
+    "block": 64
+  },
+  {
+    "family": "module rings+hierarchy",
+    "phi": 8.0,
+    "g": 0.9,
+    "block": 64
+  },
+  {
+    "family": "ring+uniform",
+    "g": 0.001
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.001,
+    "seed": 0
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.001,
+    "seed": 1
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.001,
+    "seed": 2
+  },
+  {
+    "family": "ring+uniform",
+    "g": 0.003
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.003,
+    "seed": 0
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.003,
+    "seed": 1
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.003,
+    "seed": 2
+  },
+  {
+    "family": "ring+uniform",
+    "g": 0.01
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.01,
+    "seed": 0
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.01,
+    "seed": 1
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.01,
+    "seed": 2
+  },
+  {
+    "family": "ring+uniform",
+    "g": 0.03
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.03,
+    "seed": 0
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.03,
+    "seed": 1
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.03,
+    "seed": 2
+  },
+  {
+    "family": "ring+uniform",
+    "g": 0.1
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.1,
+    "seed": 0
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.1,
+    "seed": 1
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.1,
+    "seed": 2
+  },
+  {
+    "family": "ring+uniform",
+    "g": 0.3
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.3,
+    "seed": 0
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.3,
+    "seed": 1
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.3,
+    "seed": 2
+  },
+  {
+    "family": "ring+uniform",
+    "g": 0.6
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.6,
+    "seed": 0
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.6,
+    "seed": 1
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.6,
+    "seed": 2
+  },
+  {
+    "family": "ring+uniform",
+    "g": 0.9
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.9,
+    "seed": 0
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.9,
+    "seed": 1
+  },
+  {
+    "family": "ring+random cycles",
+    "g": 0.9,
+    "seed": 2
+  },
+  {
+    "family": "powerlaw ring",
+    "power": 0.75
+  },
+  {
+    "family": "powerlaw ring",
+    "power": 1.2
+  },
+  {
+    "family": "powerlaw ring",
+    "power": 1.5
+  },
+  {
+    "family": "powerlaw ring",
+    "power": 1.8
+  },
+  {
+    "family": "powerlaw ring",
+    "power": 2.2
+  },
+  {
+    "family": "powerlaw ring",
+    "power": 3.0
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.01,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.01,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.01,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.01,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.01,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.01,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.1,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.1,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.1,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.1,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.1,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.1,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.3,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.3,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.3,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.3,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.3,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.3,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.6,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.6,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.6,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.6,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.6,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.6,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.9,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.9,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.9,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.9,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.9,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.5,
+    "g": 0.9,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.01,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.01,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.01,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.01,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.01,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.01,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.1,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.1,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.1,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.1,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.1,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.1,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.3,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.3,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.3,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.3,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.3,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.3,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.6,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.6,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.6,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.6,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.6,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.6,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.9,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.9,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.9,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.9,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.9,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 2.83,
+    "g": 0.9,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.01,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.01,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.01,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.01,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.01,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.01,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.1,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.1,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.1,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.1,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.1,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.1,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.3,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.3,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.3,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.3,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.3,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.3,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.6,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.6,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.6,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.6,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.6,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.6,
+    "seed": 2,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.9,
+    "seed": 0,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.9,
+    "seed": 0,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.9,
+    "seed": 1,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.9,
+    "seed": 1,
+    "balance": true
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.9,
+    "seed": 2,
+    "balance": false
+  },
+  {
+    "family": "ring+stochastic hierarchy",
+    "phi": 3.2,
+    "g": 0.9,
+    "seed": 2,
+    "balance": true
+  }
+]

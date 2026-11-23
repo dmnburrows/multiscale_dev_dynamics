@@ -1,0 +1,84 @@
+[
+  {
+    "window": "2-4",
+    "fixed_phi": 7.765787162650601,
+    "fixed_phi_peak_m": 0.8428252748057996,
+    "fixed_phi_pair_at_peak": [
+      1.4461628052554925,
+      0.32438188545014546
+    ],
+    "rounded_target_reached": false
+  },
+  {
+    "window": "4-8",
+    "fixed_phi": 7.765787162650601,
+    "fixed_phi_peak_m": 0.9497941157187406,
+    "fixed_phi_pair_at_peak": [
+      1.4924476797862136,
+      0.28930795058108605
+    ],
+    "rounded_target_reached": false
+  },
+  {
+    "window": "8-16",
+    "fixed_phi": 7.765787162650601,
+    "fixed_phi_peak_m": 0.9863484289073461,
+    "fixed_phi_pair_at_peak": [
+      1.5050060242395538,
+      0.28107583024794647
+    ],
+    "rounded_target_reached": false
+  },
+  {
+    "window": "16-32",
+    "fixed_phi": 7.765787162650601,
+    "fixed_phi_peak_m": 0.9964316223103251,
+    "fixed_phi_pair_at_peak": [
+      1.5082910603298245,
+      0.27899819549438154
+    ],
+    "rounded_target_reached": false
+  },
+  {
+    "window": "global 2-64",
+    "target_phi": 7.765787162650594,
+    "target_m": 0.9878395144455867,
+    "target_pair": [
+      1.5,
+      0.19999999999999998
+    ],
+    "peak_m": 0.9890842351441548,
+    "pair_at_peak": [
+      1.515806982246604,
+      0.20012964468734232
+    ],
+    "fixed_phi": 7.765787162650601,
+    "fixed_phi_peak_m": 0.9890842351443755,
+    "fixed_phi_pair_at_peak": [
+      1.5158069822495546,
+      0.20012964468734193
+    ],
+    "rounded_target_reached": true
+  },
+  {
+    "window": "global 4-128",
+    "target_phi": 7.382953863572082,
+    "target_m": 0.9960777938602081,
+    "target_pair": [
+      1.50000000000002,
+      0.1999999999996918
+    ],
+    "peak_m": 0.9968925873048015,
+    "pair_at_peak": [
+      1.5336713518002467,
+      0.20064544511499896
+    ],
+    "fixed_phi": 7.765787162650601,
+    "fixed_phi_peak_m": 0.9973693934410055,
+    "fixed_phi_pair_at_peak": [
+      1.5331189230859512,
+      0.19482686331909768
+    ],
+    "rounded_target_reached": true
+  }
+]

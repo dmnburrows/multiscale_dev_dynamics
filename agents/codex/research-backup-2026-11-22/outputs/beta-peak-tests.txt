@@ -1,0 +1,83 @@
+BETA PEAK LOCATION AUDIT
+
+Question
+For each specified network and slope window, maximize beta over m and record
+alpha, beta, m, 1-m, and the nearest alpha=1.5 crossing. Maxima are over coupling
+with the cluster-size interval or global window held fixed.
+
+Network definitions
+Ring: undirected periodic first- and second-neighbour connections, degree four.
+HM: deterministic fully connected weighted dyadic hierarchy with edge weight
+Phi^(-tree level). Phi = 3, 4, 5, and 7.765787162650601.
+The latter parameter was previously selected to fit the rounded empirical pair.
+It is included for comparison, not as an independently selected architecture.
+
+No original linear_theory.py implementation was supplied. These are reconstructed
+definitions matching the hierarchy formulas in the supplied text. This test does
+not cover stochastic hierarchical modular network generators.
+
+Slope definitions
+"Local" is the two-point secant over one K-to-2K interval, not an instantaneous
+continuum derivative.
+"Global" is OLS with an intercept, equal weight for each log-spaced cluster size.
+Local intervals: 2-4, 8-16, 32-64, 128-256, where available.
+Global windows: 2-64, 4-128, 8-256, where available.
+
+Timescale
+One-sided, lag-zero-inclusive, infinite-lag integrated autocorrelation.
+For greedy clusters, normalize the average cluster autocovariance by average
+variance. This is equivalent to variance-weighting the individually normalized
+autocorrelations. Finite-lag integration and equal averaging of each normalized
+autocorrelation, as in Munn's empirical method, can change these results.
+Time per update has not been calibrated to seconds.
+
+Exact spatial/tree calculations
+N = 256, 512, 4096.
+Ring cluster sums use exact finite Fourier sums.
+HM uses exact finite Haar spectrum and aligned dyadic clusters.
+Stationary moments are exact; peak locations are numerical estimates.
+Search log(1-m) from log(1e-10) to 0. Refine every sampled local maximum.
+Compare searches using 601 and 1201 initial points.
+Compare exact sums against independent dense discrete Lyapunov solutions.
+beta-peak-checks.json records the numerical discrepancies.
+
+Greedy comparison
+N = 256, Phi = 3, 4, 5, plus degree-four ring.
+Recompute greedy correlation-based merging at each m using exact covariance.
+Compare 181- and 361-point grids in log(1-m), with finer searches around
+the five highest sampled points.
+Exact ties are resolved by stable cluster-index ordering.
+Correlations rounded to 12 decimal places are treated as ties for ranking only.
+The unrounded run is retained separately to expose sensitivity to numerical ties.
+Greedy peaks remain numerical grid estimates; the cascade can change abruptly.
+
+Files
+beta-peak-trajectories.png
+    Four panels showing interval/global alpha-beta curves for ring and Phi=4 HM.
+    Dots mark beta maxima; crosses mark rounded target (1.5, 0.2).
+beta-peak-locations.png
+    Peak alpha and beta against fitting-window scale, for all parameters and sizes.
+beta-peak-vs-coupling.png
+    Global alpha and beta versus -log10(1-m), K=2-64, N=512.
+beta-peak-greedy-comparison.png
+    Greedy peak pairs compared with aligned/contiguous pairs, both N=256.
+beta-peak-exact.csv
+    Refined peak locations, crossing locations and fit diagnostics.
+beta-peak-greedy.csv
+    Greedy peak estimates using explicit tie handling.
+beta-peak-greedy-unrounded.csv
+    Greedy peak estimates without rounding correlations for tie handling.
+beta-peak-trajectories.csv, beta-peak-greedy-trajectories.csv
+    Sweep curves used for plotting.
+beta-peak-greedy-checks.json
+    Fine versus coarse greedy-grid sensitivity.
+beta-peak-greedy-unrounded-checks.json
+    Original unrounded search sensitivity.
+
+Reproduce from this output directory, using NumPy, SciPy, pandas and matplotlib:
+    python test_beta_peak_locations.py
+    python test_beta_peak_locations.py --greedy --greedy-points 361
+    python test_beta_peak_locations.py --plots-only
+
+The script imports the Haar spectrum function from hierarchy_scan.py in this
+directory. No simulated activity trajectories are required.

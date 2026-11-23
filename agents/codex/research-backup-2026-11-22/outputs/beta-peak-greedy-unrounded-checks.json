@@ -1,0 +1,10 @@
+{
+  "configurations": 20,
+  "coarse_grid_points": 181,
+  "fine_grid_points": 361,
+  "beta_peak_max_absolute_change": 0.0013390202627326098,
+  "alpha_at_peak_max_absolute_change": 0.08511000005595948,
+  "maximum_peak_log_delta_change": 0.5204801720621953,
+  "boundary_maxima": 0,
+  "note": "Greedy peaks are grid-refined estimates; abrupt pairing changes can shift the maximizing alpha."
+}

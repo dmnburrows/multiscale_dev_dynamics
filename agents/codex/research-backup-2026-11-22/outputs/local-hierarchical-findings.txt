@@ -1,0 +1,96 @@
+Local ring structure plus hierarchical bridges: exploratory findings
+2026-11-21
+
+Question
+Can local ring-like connectivity and longer-range hierarchical connectivity
+combine to sustain exponents near alpha=1.5, beta=0.2?
+
+Main finding
+There is a precise mechanism and partial numerical support. Modular local rings
+coupled through a hierarchy separate activity into local and collective mode
+families. Pooling transfers variance between them. This can extend the range
+over which both exponents are near the target. It does not establish a universal
+pair, scale invariance, or a biological explanation.
+
+Exact construction and proof
+Let N=M*b, with M modules of b neurons. R is a symmetric row-normalized
+degree-four ring on b nodes. H is a symmetric row-normalized dyadic hierarchy
+on M modules. P=11^T/b projects onto the constant vector in a module.
+
+ B=(1-g) I_M tensor R + g H tensor P.
+
+For every nonconstant ring eigenvector v, Pv=0. Thus any module-supported
+vector e_j tensor v is an eigenvector with eigenvalue (1-g)*r, where Rv=r*v.
+These M*(b-1) vectors span the within-module zero-sum subspace.
+For H z=h*z and constant unit vector c on a module, Rc=c and Pc=c. Thus
+z tensor c has eigenvalue (1-g)+g*h. These M collective vectors complete
+an orthonormal basis. This is an exact decomposition, independently checked
+against dense eigenvalues to absolute tolerance 1e-12.
+
+In x[t+1]=m*B*x[t]+eta[t], put delta=1-m. Relaxation denominators are
+ local:      delta + m*g + m*(1-g)*(1-r)
+ collective: delta + m*g*(1-h).
+Therefore one global coupling can coexist with distinct local and collective
+relaxation bands. Adding bridges splits the degenerate uniform modes of the
+uncoupled modules; it does not unconditionally slow every mode.
+
+Numerical exploration
+309 network specifications were screened at N=256 over 801 coupling values.
+Families included rings, weighted hierarchies, their mixtures, module rings,
+uniform/random bridges, distance power laws, and stochastic hierarchical
+bridges with and without symmetric row balancing. Selected models were tested
+with greedy correlation clustering at N=256 and 512. Further selected models
+were tested at N=1024 while holding coupling fixed.
+An additional 126 module-ring specifications were screened over coupling
+and finite autocorrelation horizons. These are exploratory parameter searches,
+not independent confirmations or statistical significance tests.
+
+Example with held coupling
+Module size b=32, bridge fraction g=0.03, hierarchy Phi=8,
+m approximately 0.972837. Horizon: 24 model updates, trapezoidal integral.
+Estimator: equal average of each cluster's normalized autocorrelation.
+Clusters: greedy correlation pairing. No coupling refit between sizes.
+
+N       global alpha   global beta
+256     1.526974       0.239842
+512     1.525220       0.239847
+1024    1.524599       0.239842
+
+Global fits use dyadic cluster sizes K=2 through 64. For intervals K=8->16,
+16->32 and 32->64, alpha is approximately 1.4756--1.5072 and beta approximately
+0.1668--0.2254 across these sizes. Outside this window the slopes drift clearly.
+Size stability here holds module size and observation window fixed; it does
+not show invariance when those scales increase together.
+
+Estimator sensitivity
+Finite integration lowers beta without changing the stationary variance alpha.
+Related candidates have infinite-horizon beta near 0.30, falling toward the
+empirical range at finite horizons. Uniform bridges and pure hierarchies can
+also benefit from finite integration, so this effect is not unique to modular
+ring connectivity. No mapping from model updates to biological seconds has
+been established. The 24-update choice was selected during exploration.
+
+Interpretation
+The useful finding is a testable composition mechanism: local modes dominate
+small-scale fluctuations, and hierarchical collective modes take over during
+pooling. A mixture can sustain near-target exponents better over selected
+windows than either component at the same coupling. The exponents remain
+functions of topology, coupling, clustering, window, and timescale estimator.
+
+Limitations
+These are explicit reconstructed models, not an audit of the unavailable
+canonical linear_theory.py or a fit to raw brain data. The strongest analytic
+result concerns a weighted deterministic hierarchy. Stochastic hierarchy
+controls were explored but do not inherit the exact tensor decomposition.
+The candidate was selected after extensive searching, has a fixed module scale,
+and misses the exact global pair. No Griffiths phase or universal spectral-
+dimension criterion follows from these calculations.
+
+Files
+local_hierarchical_bridge.py: construction, initial screen, greedy follow-up.
+bridge_finite_horizon_screen.py: modular finite-horizon search.
+bridge_validation.py: eigenvalue/integration checks and held-state validation.
+bridge_mechanism_plots.py: final figures and interval measurements.
+bridge-24step-validation.csv: held-coupling candidate size checks.
+bridge-held-coupling-intervals.png: intervals and component controls.
+bridge-mode-composition.png: local/collective/Perron variance shares.

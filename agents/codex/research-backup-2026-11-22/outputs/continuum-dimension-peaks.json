@@ -1,0 +1,58 @@
+[
+  {
+    "d": 1.0,
+    "x_peak": 2.014047964945777,
+    "alpha_at_peak": 1.5209460456018185,
+    "beta_peak": 0.21675686979934716,
+    "location": "interior numerical maximum"
+  },
+  {
+    "d": 1.5,
+    "x_peak": 1.6502016395001189,
+    "alpha_at_peak": 1.542557913385398,
+    "beta_peak": 0.2301806947179482,
+    "location": "interior numerical maximum"
+  },
+  {
+    "d": 2.0,
+    "x_peak": 1.2242265017751444,
+    "alpha_at_peak": 1.5714373792283696,
+    "beta_peak": 0.2477647692791335,
+    "location": "interior numerical maximum"
+  },
+  {
+    "d": 2.5,
+    "x_peak": 0.6886180477341253,
+    "alpha_at_peak": 1.6141607989169517,
+    "beta_peak": 0.2737970808257361,
+    "location": "interior numerical maximum"
+  },
+  {
+    "d": 3.0,
+    "x_peak": 0.0,
+    "alpha_at_peak": 1.6666666666666665,
+    "beta_peak": 0.3333333333333333,
+    "location": "boundary supremum as x tends to zero; checked on sampled range"
+  },
+  {
+    "d": 4.0,
+    "x_peak": 0.0,
+    "alpha_at_peak": 1.5,
+    "beta_peak": 0.5,
+    "location": "boundary supremum as x tends to zero; checked on sampled range"
+  },
+  {
+    "d": 5.0,
+    "x_peak": 0.0,
+    "alpha_at_peak": 1.4,
+    "beta_peak": 0.4,
+    "location": "boundary supremum as x tends to zero; checked on sampled range"
+  },
+  {
+    "d": 6.0,
+    "x_peak": 0.0,
+    "alpha_at_peak": 1.3333333333333333,
+    "beta_peak": 0.3333333333333333,
+    "location": "boundary supremum as x tends to zero; checked on sampled range"
+  }
+]

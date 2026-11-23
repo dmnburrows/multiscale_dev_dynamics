@@ -1,0 +1,18 @@
+{
+  "stationary_covariance": 1.1444178937836114e-12,
+  "mean_cluster_variance": 9.247354828731228e-14,
+  "integrated_cluster_covariance": 6.344306432153393e-13,
+  "mean_normalized_timescale": 4.679693730783438e-13,
+  "lag_covariance": 1.5937494379780759e-12,
+  "overlap_sum": 1.1842378929335002e-15,
+  "local_alpha": 2.602814412630125e-11,
+  "local_beta": 2.852620917259685e-11,
+  "fitted_slope_identity": 9.020562075079397e-16,
+  "continuum_variance_real_space": 2.5906912280248087e-16,
+  "continuum_integrated_covariance": 7.156372375258785e-10,
+  "continuum_beta": 1.584596343029432e-11,
+  "peak_u": 2.0140457762165567,
+  "peak_alpha": 1.5209463940028765,
+  "peak_beta": 0.21675686979932465,
+  "nearest_neighbour_equal_time_adjacent_covariance": -1.2866050363670283e-14
+}
